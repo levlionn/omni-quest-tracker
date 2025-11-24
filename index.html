@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Protocol OMNI</title>
+    <title>Protocol OMNI v2.1</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -11,22 +11,33 @@
     <!-- Babel for JSX -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    <!-- Import Map for React & Libraries -->
+    <!-- Import Map for React & Icons -->
     <script type="importmap">
     {
       "imports": {
         "react": "https://esm.sh/react@18.2.0",
         "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
-        "lucide-react": "https://esm.sh/lucide-react@0.263.1",
-        "recharts": "https://esm.sh/recharts@2.12.0"
+        "lucide-react": "https://esm.sh/lucide-react@0.263.1"
       }
     }
     </script>
 
     <style>
         body { background-color: #020617; } /* slate-950 */
-        /* Prevent pull-to-refresh on mobile */
         body { overscroll-behavior-y: none; }
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        @keyframes pulse-emerald {
+            0%, 100% { box-shadow: 0 0 0 0px rgba(16, 185, 129, 0.7); }
+            50% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+        }
+        .completion-glow {
+            animation: pulse-emerald 2s infinite;
+        }
     </style>
 </head>
 <body>
@@ -38,16 +49,12 @@
         import { 
             Sword, Shield, Scroll, Trophy, Save, Calendar, BarChart2, 
             Target, User, Zap, MessageSquare, Share2, Send, PenTool, 
-            Download, ChevronLeft, ChevronRight, Flame, Trash2 
+            Download, ChevronLeft, ChevronRight, Flame, Trash2, Crown, 
+            TrendingUp, Lock, CheckCircle, AlertCircle
         } from 'lucide-react';
-        import { 
-            BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, 
-            Legend, ResponsiveContainer, RadarChart, PolarGrid, 
-            PolarAngleAxis, PolarRadiusAxis, Radar 
-        } from 'recharts';
 
-        // --- Types & Constants ---
-        const STORAGE_KEY = 'omni_protocol_v1_local';
+        // --- Constants ---
+        const STORAGE_KEY = 'omni_protocol_v2_1_local';
 
         const INITIAL_LOG = {
             date: new Date().toISOString().split('T')[0],
@@ -58,7 +65,7 @@
             regularPosts: 0,
             hvPosts: 0,
             xp: 0,
-            completed: false,
+            isComplete: false, // New field for streak tracking
         };
 
         const TARGETS = {
@@ -77,12 +84,92 @@
             hvPosts: 800
         };
 
-        // --- Components ---
+        const PERKS = {
+            Charisma: [
+                { lvl: 1, name: "Lurker", desc: "You exist." },
+                { lvl: 5, name: "Reply Guy", desc: "First on the scene." },
+                { lvl: 15, name: "Networker", desc: "People recognize your pfp." },
+                { lvl: 30, name: "Cult Leader", desc: "They wait for your comments." }
+            ],
+            Intellect: [
+                { lvl: 1, name: "Scribbler", desc: "Learning the craft." },
+                { lvl: 5, name: "Copywriter", desc: "Hooks that catch." },
+                { lvl: 15, name: "Strategist", desc: "Content with purpose." },
+                { lvl: 30, name: "Thought Lord", desc: "Zero fluff, all value." }
+            ],
+            Endurance: [
+                { lvl: 1, name: "Cold Caller", desc: "Sending the first DM." },
+                { lvl: 5, name: "Hunter", desc: "Consistent pipeline." },
+                { lvl: 15, name: "Rainmaker", desc: "Deals are closing." },
+                { lvl: 30, name: "Empire Builder", desc: "Systems run themselves." }
+            ]
+        };
 
-        const ProgressBar = ({ current, max, color = "bg-blue-500" }) => {
+        // --- Helper Components ---
+
+        const SvgRadarChart = ({ stats }) => {
+            const size = 200;
+            const center = size / 2;
+            const radius = 80;
+            
+            const points = stats.map((val, i) => {
+                const angle = (Math.PI * 2 * i) / 3 - Math.PI / 2;
+                const r = (val / 100) * radius;
+                return `${center + r * Math.cos(angle)},${center + r * Math.sin(angle)}`;
+            }).join(' ');
+
+            const bgPoints = [0, 1, 2].map((i) => {
+                const angle = (Math.PI * 2 * i) / 3 - Math.PI / 2;
+                return `${center + radius * Math.cos(angle)},${center + radius * Math.sin(angle)}`;
+            }).join(' ');
+
+            return (
+                <svg width="100%" height="250" viewBox={`0 0 ${size} ${size}`}>
+                    <polygon points={bgPoints} fill="none" stroke="#334155" strokeWidth="1" />
+                    <circle cx={center} cy={center} r={radius * 0.66} fill="none" stroke="#334155" strokeWidth="0.5" strokeDasharray="4 4" />
+                    <circle cx={center} cy={center} r={radius * 0.33} fill="none" stroke="#334155" strokeWidth="0.5" strokeDasharray="4 4" />
+                    <text x={center} y={15} textAnchor="middle" fill="#34d399" fontSize="10" fontWeight="bold">CHARISMA</text>
+                    <text x={size - 10} y={size - 40} textAnchor="end" fill="#f43f5e" fontSize="10" fontWeight="bold">ENDURANCE</text>
+                    <text x={10} y={size - 40} textAnchor="start" fill="#60a5fa" fontSize="10" fontWeight="bold">INTELLECT</text>
+                    <polygon points={points} fill="rgba(99, 102, 241, 0.5)" stroke="#818cf8" strokeWidth="2" />
+                </svg>
+            );
+        };
+
+        const SvgTrendChart = ({ data }) => {
+            const height = 100;
+            const width = 300;
+            const maxVal = Math.max(...data.map(d => d.xp), 1000); 
+            
+            return (
+                <svg width="100%" height="120" viewBox={`0 0 ${width} ${height}`}>
+                    {data.map((d, i) => {
+                        const barHeight = (d.xp / maxVal) * height;
+                        const x = (i * (width / 7)) + 10;
+                        return (
+                            <g key={i}>
+                                <rect 
+                                    x={x} 
+                                    y={height - barHeight} 
+                                    width={(width / 7) - 15} 
+                                    height={barHeight} 
+                                    fill={d.isComplete ? "#10b981" : (d.xp > 0 ? "#6366f1" : "#1e293b")} 
+                                    rx="4"
+                                />
+                                <text x={x + 15} y={height + 15} fontSize="10" fill="#64748b" textAnchor="middle">
+                                    {new Date(d.date).getDate()}
+                                </text>
+                            </g>
+                        );
+                    })}
+                </svg>
+            );
+        };
+
+        const ProgressBar = ({ current, max, color = "bg-blue-500", size = "h-3" }) => {
             const percent = Math.min(100, (current / max) * 100);
             return (
-                <div className="w-full bg-slate-700 rounded-full h-3 overflow-hidden">
+                <div className={`w-full bg-slate-800 rounded-full ${size} overflow-hidden`}>
                     <div 
                         className={`h-full ${color} transition-all duration-500 ease-out`} 
                         style={{ width: `${percent}%` }}
@@ -91,25 +178,11 @@
             );
         };
 
-        const StatCard = ({ icon: Icon, label, value, sublabel, color }) => (
-            <div className="bg-slate-800 border border-slate-700 p-4 rounded-xl flex items-center space-x-4 shadow-lg">
-                <div className={`p-3 rounded-lg bg-opacity-20 ${color.replace('text-', 'bg-')}`}>
-                    <Icon className={`w-6 h-6 ${color}`} />
-                </div>
-                <div>
-                    <h3 className="text-slate-400 text-xs uppercase tracking-wider font-bold">{label}</h3>
-                    <div className="text-2xl font-bold text-white">{value}</div>
-                    {sublabel && <div className="text-xs text-slate-500">{sublabel}</div>}
-                </div>
-            </div>
-        );
-
         const NumberInput = ({ label, value, onChange, target, icon: Icon }) => {
             const isComplete = value >= target;
-            
             return (
-                <div className={`p-4 rounded-xl border transition-all duration-300 ${isComplete ? 'bg-emerald-900/20 border-emerald-500/50' : 'bg-slate-800 border-slate-700'}`}>
-                    <div className="flex justify-between items-center mb-3">
+                <div className={`p-4 rounded-xl border transition-all duration-300 ${isComplete ? 'bg-emerald-900/10 border-emerald-500/30' : 'bg-slate-800 border-slate-700'}`}>
+                    <div className="flex justify-between items-center mb-2">
                         <div className="flex items-center space-x-3">
                             <Icon className={`w-5 h-5 ${isComplete ? 'text-emerald-400' : 'text-slate-400'}`} />
                             <span className={`font-medium ${isComplete ? 'text-emerald-200' : 'text-slate-200'}`}>{label}</span>
@@ -119,28 +192,16 @@
                             <span className="text-slate-600"> / {target}</span>
                         </div>
                     </div>
-                    
-                    <ProgressBar current={value} max={target} color={isComplete ? "bg-emerald-500" : "bg-indigo-500"} />
-                    
-                    <div className="flex space-x-2 mt-4">
-                        <button 
-                            onClick={() => onChange(Math.max(0, value - 1))}
-                            className="w-12 h-10 flex items-center justify-center rounded-lg bg-slate-700 text-slate-300 hover:bg-slate-600 active:bg-slate-800"
-                        >
-                            -
-                        </button>
-                        <button 
-                            onClick={() => onChange(value + 1)}
-                            className={`flex-1 h-10 flex items-center justify-center rounded-lg font-bold text-sm transition-colors active:scale-95 transform ${isComplete ? 'bg-emerald-600 hover:bg-emerald-500 text-white' : 'bg-indigo-600 hover:bg-indigo-500 text-white'}`}
-                        >
-                            + Log
-                        </button>
+                    <ProgressBar current={value} max={target} color={isComplete ? "bg-emerald-500" : "bg-indigo-500"} size="h-2" />
+                    <div className="flex space-x-2 mt-3">
+                        <button onClick={() => onChange(Math.max(0, value - 1))} className="w-10 h-9 flex items-center justify-center rounded-lg bg-slate-700 text-slate-300 hover:bg-slate-600 active:bg-slate-800">-</button>
+                        <button onClick={() => onChange(value + 1)} className={`flex-1 h-9 flex items-center justify-center rounded-lg font-bold text-sm transition-colors active:scale-95 ${isComplete ? 'bg-emerald-600 hover:bg-emerald-500 text-white' : 'bg-indigo-600 hover:bg-indigo-500 text-white'}`}>+ Log</button>
                     </div>
                 </div>
             );
         };
 
-        // --- Main App Component ---
+        // --- Main App ---
 
         function OmniQuestTracker() {
             const [activeTab, setActiveTab] = useState('quest');
@@ -148,229 +209,372 @@
             const [log, setLog] = useState(INITIAL_LOG);
             const [history, setHistory] = useState([]);
 
-            // Load from LocalStorage
+            // Load History
             useEffect(() => {
                 try {
                     const saved = localStorage.getItem(STORAGE_KEY);
                     if (saved) {
                         const parsedHistory = JSON.parse(saved);
                         setHistory(parsedHistory);
-                        
                         const todayEntry = parsedHistory.find(h => h.date === currentDate);
-                        if (todayEntry) {
-                            setLog(todayEntry);
-                        } else {
-                            setLog({ ...INITIAL_LOG, date: currentDate });
-                        }
+                        setLog(todayEntry || { ...INITIAL_LOG, date: currentDate });
                     }
-                } catch (e) {
-                    console.error("Failed to load local history", e);
-                }
+                } catch (e) { console.error("Load failed", e); }
             }, []);
 
-            // Sync log when date changes
+            // Sync Log on Date Change
             useEffect(() => {
                 const entry = history.find(h => h.date === currentDate);
-                if (entry) {
-                    setLog(entry);
-                } else {
-                    setLog({ ...INITIAL_LOG, date: currentDate });
-                }
-            }, [currentDate, history]);
+                setLog(entry || { ...INITIAL_LOG, date: currentDate });
+            }, [currentDate]);
 
-            // Calculate XP & Save Logic
-            useEffect(() => {
-                const xp = 
-                    (log.replyGuy * XP_VALUES.replyGuy) +
-                    (log.icpComments * XP_VALUES.icpComments) +
-                    (log.hvInteractions * XP_VALUES.hvInteractions) +
-                    (log.outboundDMs * XP_VALUES.outboundDMs) +
-                    (log.regularPosts * XP_VALUES.regularPosts) +
-                    (log.hvPosts * XP_VALUES.hvPosts);
-                    
-                if (xp !== log.xp) {
-                    const newLog = { ...log, xp };
-                    setLog(newLog);
-                    saveToLocal(newLog);
+            // Helper: Check for 100% completion based on Day of Week rules
+            const checkCompletion = (logData) => {
+                // 1. Check basic inputs
+                const basicsMet = 
+                    logData.replyGuy >= TARGETS.replyGuy &&
+                    logData.icpComments >= TARGETS.icpComments &&
+                    logData.hvInteractions >= TARGETS.hvInteractions &&
+                    logData.outboundDMs >= TARGETS.outboundDMs;
+
+                if (!basicsMet) return false;
+
+                // 2. Check Boss by Day of Week
+                const date = new Date(logData.date);
+                const day = date.getDay(); // 0=Sun, 1=Mon, 4=Thu, 5=Fri
+                
+                // Mon (1) - Wed (3): Needs 1 Regular Post
+                if (day >= 1 && day <= 3) {
+                    return logData.regularPosts >= 1;
                 }
-            }, [log.replyGuy, log.icpComments, log.hvInteractions, log.outboundDMs, log.regularPosts, log.hvPosts]);
+                // Thu (4): Needs 1 HV Post
+                if (day === 4) {
+                    return logData.hvPosts >= 1;
+                }
+                // Fri (5): Side Quest (Basics met is enough)
+                if (day === 5) {
+                    return true;
+                }
+                
+                // Weekends (0, 6): No requirements (always complete if accessed? Or ignore streak?)
+                // Strategy: Weekends don't break streak, but don't add to it unless you do work.
+                // For simplicity: If basics met on weekend, it counts as complete.
+                return true;
+            };
 
             const saveToLocal = (newLog) => {
                 const otherEntries = history.filter(h => h.date !== newLog.date);
                 const newHistory = [...otherEntries, newLog].sort((a, b) => b.date.localeCompare(a.date));
-                
                 setHistory(newHistory);
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(newHistory));
             };
 
             const handleUpdate = (field, val) => {
-                const newLog = { ...log, [field]: val };
-                setLog(newLog); 
-                saveToLocal(newLog);
+                const updatedLog = { ...log, [field]: val };
+                
+                // Recalculate XP
+                const newXp = (updatedLog.replyGuy * XP_VALUES.replyGuy) +
+                              (updatedLog.icpComments * XP_VALUES.icpComments) +
+                              (updatedLog.hvInteractions * XP_VALUES.hvInteractions) +
+                              (updatedLog.outboundDMs * XP_VALUES.outboundDMs) +
+                              (updatedLog.regularPosts * XP_VALUES.regularPosts) +
+                              (updatedLog.hvPosts * XP_VALUES.hvPosts);
+                
+                // Recalculate Completion
+                const isComplete = checkCompletion({ ...updatedLog, xp: newXp });
+
+                const finalLog = { ...updatedLog, xp: newXp, isComplete };
+                setLog(finalLog);
+                saveToLocal(finalLog);
             };
 
-            // Stats
+            // --- Derived Stats ---
             const totalXP = useMemo(() => history.reduce((acc, curr) => acc + (curr.xp || 0), 0), [history]);
             const userLevel = Math.floor(totalXP / 2500) + 1;
-            const xpToNextLevel = 2500 - (totalXP % 2500);
             
-            const statsData = useMemo(() => {
+            // Streak Calculation
+            const streak = useMemo(() => {
+                if (history.length === 0) return 0;
+                
+                // Sort history by date descending
+                const sorted = [...history].sort((a, b) => new Date(b.date) - new Date(a.date));
+                
+                let currentStreak = 0;
+                const today = new Date().toISOString().split('T')[0];
+                
+                // Start checking from today or yesterday
+                // If today is complete, start count. If today is incomplete, check if yesterday is complete.
+                // If neither, streak is 0.
+                
+                let checkDate = new Date();
+                
+                // Helper to format date
+                const toIso = (d) => d.toISOString().split('T')[0];
+                
+                // Loop backwards max 365 days
+                for (let i = 0; i < 365; i++) {
+                    const dateStr = toIso(checkDate);
+                    const dayOfWeek = checkDate.getDay();
+                    const entry = sorted.find(h => h.date === dateStr);
+
+                    // Skip weekends in streak calculation if no data present
+                    // (Allow gaps on Sat/Sun)
+                    if ((dayOfWeek === 0 || dayOfWeek === 6) && (!entry || !entry.isComplete)) {
+                        checkDate.setDate(checkDate.getDate() - 1);
+                        continue;
+                    }
+
+                    if (entry && entry.isComplete) {
+                        currentStreak++;
+                        checkDate.setDate(checkDate.getDate() - 1);
+                    } else if (dateStr === today && (!entry || !entry.isComplete)) {
+                        // If checking today and it's not done yet, don't break streak, just move to yesterday
+                        checkDate.setDate(checkDate.getDate() - 1);
+                    } else {
+                        // Streak broken
+                        break;
+                    }
+                }
+                
+                return currentStreak;
+            }, [history, log]);
+
+            // Trend Data
+            const trendData = useMemo(() => {
+                const days = [];
+                for(let i=6; i>=0; i--) {
+                    const d = new Date();
+                    d.setDate(d.getDate() - i);
+                    const iso = d.toISOString().split('T')[0];
+                    const entry = history.find(h => h.date === iso);
+                    days.push({ 
+                        date: iso, 
+                        xp: entry ? entry.xp : 0,
+                        isComplete: entry ? entry.isComplete : false
+                    });
+                }
+                return days;
+            }, [history, currentDate, log]);
+
+            // Skill Stats
+            const skillStats = useMemo(() => {
                 const stats = { Charisma: 0, Intellect: 0, Endurance: 0 };
                 history.forEach(day => {
                     stats.Charisma += (day.replyGuy * 10) + (day.icpComments * 20);
                     stats.Intellect += (day.regularPosts * 100) + (day.hvPosts * 200);
                     stats.Endurance += (day.hvInteractions * 30) + (day.outboundDMs * 50);
                 });
-                const maxVal = Math.max(stats.Charisma, stats.Intellect, stats.Endurance, 100);
-                return [
-                    { subject: 'Charisma', A: (stats.Charisma / maxVal) * 100, fullMark: 100 },
-                    { subject: 'Intellect', A: (stats.Intellect / maxVal) * 100, fullMark: 100 },
-                    { subject: 'Endurance', A: (stats.Endurance / maxVal) * 100, fullMark: 100 },
-                ];
+                return stats;
             }, [history]);
 
-            // Daily Boss
-            const dayOfWeek = new Date(currentDate).getDay(); 
-            let dailyBossTitle = "Rest Day";
-            let dailyBossDesc = "Review stats and prep for the week.";
-            let hvPostTarget = 0;
+            const getPerkStatus = (category, currentStat) => {
+                const statLvl = Math.floor(currentStat / 200) + 1; 
+                const nextPerk = PERKS[category].find(p => p.lvl > statLvl);
+                const currentPerk = [...PERKS[category]].reverse().find(p => p.lvl <= statLvl);
+                return { statLvl, currentPerk, nextPerk };
+            };
 
-            if (dayOfWeek >= 1 && dayOfWeek <= 3) {
-                dailyBossTitle = "Regular Post Boss";
-                dailyBossDesc = "Write & Ship 1 Regular Brand Post";
-            } else if (dayOfWeek === 4) {
-                dailyBossTitle = "The High-Value Raid";
-                dailyBossDesc = "Write & Ship 1 HV/Long-form Post";
-                hvPostTarget = 1;
-            } else if (dayOfWeek === 5) {
-                dailyBossTitle = "Side Quest Friday";
-                dailyBossDesc = "Focus on Outbound & Maintenance";
-            }
+            // Renderers
+            const renderQuestLog = () => {
+                const dayOfWeek = new Date(currentDate).getDay();
+                let bossTitle = "Rest Day";
+                let bossDesc = "Recover AP.";
+                let isHVRaid = false;
 
-            // Render Helper
-            const renderQuestLog = () => (
-                <div className="space-y-6 pb-20">
-                    <div className="flex items-center justify-between bg-slate-800 p-4 rounded-xl border border-slate-700">
-                        <button onClick={() => {
-                            const d = new Date(currentDate);
-                            d.setDate(d.getDate() - 1);
-                            setCurrentDate(d.toISOString().split('T')[0]);
-                        }} className="p-2 hover:bg-slate-700 rounded-lg text-slate-400">
-                            <ChevronLeft />
-                        </button>
-                        <div className="text-center">
-                            <div className="text-xs text-slate-400 uppercase tracking-widest font-bold mb-1">Quest Log</div>
-                            <div className="text-lg text-white font-mono flex items-center justify-center gap-2">
-                                <Calendar className="w-4 h-4 text-indigo-400" /> {currentDate}
+                if (dayOfWeek >= 1 && dayOfWeek <= 3) {
+                    bossTitle = "Regular Post Boss";
+                    bossDesc = "Ship 1 Regular Post";
+                } else if (dayOfWeek === 4) {
+                    bossTitle = "High-Value Raid";
+                    bossDesc = "Ship 1 HV Post";
+                    isHVRaid = true;
+                } else if (dayOfWeek === 5) {
+                    bossTitle = "Admin Friday";
+                    bossDesc = "Outbound & Clean up";
+                }
+
+                return (
+                    <div className="space-y-5 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        {/* Header */}
+                        <div className="flex items-center justify-between bg-slate-800 p-3 rounded-xl border border-slate-700">
+                            <button onClick={() => {
+                                const d = new Date(currentDate); d.setDate(d.getDate() - 1);
+                                setCurrentDate(d.toISOString().split('T')[0]);
+                            }} className="p-2 text-slate-400 hover:text-white"><ChevronLeft className="w-5 h-5"/></button>
+                            <div className="text-center">
+                                <div className="text-xs text-slate-500 font-bold uppercase tracking-wider">Quest Log</div>
+                                <div className="font-mono text-white flex items-center gap-2"><Calendar className="w-4 h-4 text-indigo-400"/> {currentDate}</div>
                             </div>
+                            <button onClick={() => {
+                                const d = new Date(currentDate); d.setDate(d.getDate() + 1);
+                                setCurrentDate(d.toISOString().split('T')[0]);
+                            }} className="p-2 text-slate-400 hover:text-white"><ChevronRight className="w-5 h-5"/></button>
                         </div>
-                        <button onClick={() => {
-                            const d = new Date(currentDate);
-                            d.setDate(d.getDate() + 1);
-                            setCurrentDate(d.toISOString().split('T')[0]);
-                        }} className="p-2 hover:bg-slate-700 rounded-lg text-slate-400">
-                            <ChevronRight />
-                        </button>
-                    </div>
 
-                    <div className="bg-gradient-to-r from-indigo-900 to-slate-900 p-6 rounded-2xl border border-indigo-500/30 relative overflow-hidden shadow-2xl">
-                        <div className="absolute top-0 right-0 p-4 opacity-10">
-                            <Flame className="w-32 h-32" />
-                        </div>
-                        <div className="relative z-10 text-center">
-                            <h2 className="text-sm uppercase tracking-widest font-bold text-indigo-200/60 mb-1">Daily XP Gained</h2>
-                            <div className="text-6xl font-black text-indigo-300 font-mono my-2 drop-shadow-lg">{log.xp}</div>
-                        </div>
-                    </div>
-
-                    {(dayOfWeek >= 1 && dayOfWeek <= 4) && (
-                        <div className="bg-slate-900 border-2 border-red-900/50 rounded-xl p-6 relative shadow-xl">
-                            <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-red-600 text-white px-4 py-1 text-xs font-bold uppercase rounded-full shadow-lg whitespace-nowrap">
-                                Boss Battle
+                        {/* Streak & Completion Card */}
+                        <div className={`relative overflow-hidden rounded-2xl p-6 border transition-all duration-500 ${log.isComplete ? 'bg-emerald-900/40 border-emerald-500 completion-glow' : 'bg-indigo-900 border-indigo-500/30'}`}>
+                            <div className="absolute top-0 right-0 opacity-10 pointer-events-none">
+                                {log.isComplete ? <CheckCircle className="w-32 h-32"/> : <Flame className="w-32 h-32"/>}
                             </div>
-                            <div className="flex flex-col items-center justify-between gap-4 mt-2 text-center">
+                            
+                            <div className="flex justify-between items-start mb-4 relative z-10">
                                 <div>
-                                    <h3 className="text-xl font-bold text-white flex items-center justify-center gap-2">
-                                        <Sword className="text-red-500 w-5 h-5" />
-                                        {dailyBossTitle}
-                                        <Sword className="text-red-500 w-5 h-5 transform scale-x-[-1]" />
+                                    <div className="text-xs font-bold uppercase tracking-widest mb-1 flex items-center gap-2">
+                                        {log.isComplete ? <span className="text-emerald-400">Day Complete</span> : <span className="text-indigo-200">Daily Progress</span>}
+                                    </div>
+                                    <div className="text-4xl font-black text-white tracking-tighter drop-shadow-lg">{log.xp} <span className="text-lg opacity-50 font-medium">XP</span></div>
+                                </div>
+                                <div className="text-right">
+                                    <div className="text-xs font-bold uppercase tracking-widest text-amber-500 mb-1">Streak</div>
+                                    <div className="text-3xl font-black text-white flex items-center justify-end gap-1">
+                                        <Flame className="w-6 h-6 text-amber-500 fill-amber-500" /> {streak}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            {!log.isComplete && (
+                                <div className="relative z-10 bg-black/20 rounded-full h-2 w-full overflow-hidden">
+                                     <div className="h-full bg-indigo-500 w-1/2 animate-pulse"></div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Boss Section */}
+                        {(dayOfWeek >= 1 && dayOfWeek <= 4) && (
+                            <div className="relative bg-slate-900 rounded-xl p-5 border-2 border-red-900/50">
+                                <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-red-600 px-3 py-0.5 rounded-full text-[10px] font-bold uppercase text-white tracking-wider shadow-lg">Boss Battle</div>
+                                <div className="text-center mb-4 mt-1">
+                                    <h3 className="text-white font-bold text-lg flex items-center justify-center gap-2">
+                                        <Sword className="w-5 h-5 text-red-500"/> {bossTitle}
                                     </h3>
-                                    <p className="text-slate-400 text-sm mt-1">{dailyBossDesc}</p>
+                                    <p className="text-slate-400 text-xs">{bossDesc}</p>
                                 </div>
-                                <div className="w-full">
-                                    {hvPostTarget > 0 ? (
-                                        <button onClick={() => handleUpdate('hvPosts', log.hvPosts >= 1 ? 0 : 1)}
-                                            className={`w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all duration-300 ${log.hvPosts ? 'bg-amber-500 text-black shadow-amber-900/20' : 'bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-750'}`}>
-                                            <Trophy className="w-5 h-5" />
-                                            {log.hvPosts ? "RAID COMPLETE" : "Complete Raid"}
-                                        </button>
-                                    ) : (
-                                        <button onClick={() => handleUpdate('regularPosts', log.regularPosts >= 1 ? 0 : 1)}
-                                            className={`w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all duration-300 ${log.regularPosts ? 'bg-emerald-500 text-white shadow-emerald-900/20' : 'bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-750'}`}>
-                                            <Sword className="w-5 h-5" />
-                                            {log.regularPosts ? "BOSS DEFEATED" : "Slay Boss"}
-                                        </button>
-                                    )}
-                                </div>
+                                {isHVRaid ? (
+                                    <button onClick={() => handleUpdate('hvPosts', log.hvPosts ? 0 : 1)} className={`w-full py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-all ${log.hvPosts ? 'bg-amber-500 text-black' : 'bg-slate-800 text-slate-300 border border-slate-700'}`}>
+                                        <Trophy className="w-4 h-4"/> {log.hvPosts ? "RAID COMPLETE" : "Complete Raid"}
+                                    </button>
+                                ) : (
+                                    <button onClick={() => handleUpdate('regularPosts', log.regularPosts ? 0 : 1)} className={`w-full py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-all ${log.regularPosts ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-300 border border-slate-700'}`}>
+                                        <Sword className="w-4 h-4"/> {log.regularPosts ? "BOSS DEFEATED" : "Slay Boss"}
+                                    </button>
+                                )}
                             </div>
+                        )}
+
+                        {/* Inputs */}
+                        <div className="grid gap-3">
+                            <NumberInput label="Reply Guy" value={log.replyGuy} target={TARGETS.replyGuy} onChange={(v) => handleUpdate('replyGuy', v)} icon={MessageSquare}/>
+                            <NumberInput label="ICP Comments" value={log.icpComments} target={TARGETS.icpComments} onChange={(v) => handleUpdate('icpComments', v)} icon={Target}/>
+                            <NumberInput label="HV Interactions" value={log.hvInteractions} target={TARGETS.hvInteractions} onChange={(v) => handleUpdate('hvInteractions', v)} icon={Share2}/>
+                            <NumberInput label="Outbound DMs" value={log.outboundDMs} target={TARGETS.outboundDMs} onChange={(v) => handleUpdate('outboundDMs', v)} icon={Send}/>
                         </div>
-                    )}
-
-                    <div className="grid grid-cols-1 gap-3">
-                        <NumberInput label="Reply Guys" value={log.replyGuy} target={TARGETS.replyGuy} onChange={(v) => handleUpdate('replyGuy', v)} icon={MessageSquare} />
-                        <NumberInput label="ICP Sniping" value={log.icpComments} target={TARGETS.icpComments} onChange={(v) => handleUpdate('icpComments', v)} icon={Target} />
-                        <NumberInput label="HV Interactions" value={log.hvInteractions} target={TARGETS.hvInteractions} onChange={(v) => handleUpdate('hvInteractions', v)} icon={Share2} />
-                        <NumberInput label="Outbound DMs" value={log.outboundDMs} target={TARGETS.outboundDMs} onChange={(v) => handleUpdate('outboundDMs', v)} icon={Send} />
                     </div>
-                </div>
-            );
+                );
+            };
 
-            const renderStats = () => (
-                <div className="space-y-6 pb-20">
-                    <div className="bg-slate-800 p-8 rounded-2xl border border-slate-700 text-center relative overflow-hidden">
-                        <div className="relative z-10">
-                            <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Current Rank</h2>
-                            <div className="text-5xl font-black text-white mb-4">Lvl {userLevel}</div>
-                            <div className="max-w-md mx-auto">
-                                <div className="flex justify-between text-xs text-slate-400 mb-2">
+            const renderStats = () => {
+                const maxStat = Math.max(skillStats.Charisma, skillStats.Intellect, skillStats.Endurance, 100);
+                const normalizedStats = [
+                    (skillStats.Charisma / maxStat) * 100,
+                    (skillStats.Intellect / maxStat) * 100,
+                    (skillStats.Endurance / maxStat) * 100
+                ];
+
+                const charismaData = getPerkStatus('Charisma', skillStats.Charisma);
+                const intellectData = getPerkStatus('Intellect', skillStats.Intellect);
+                const enduranceData = getPerkStatus('Endurance', skillStats.Endurance);
+
+                const getTitle = () => {
+                    if (userLevel < 5) return "Novice Ghostwriter";
+                    if (userLevel < 10) return "Content Strategist";
+                    if (userLevel < 20) return "Brand Architect";
+                    return "OMNI Lord";
+                };
+
+                return (
+                    <div className="space-y-6 pb-20 animate-in fade-in slide-in-from-right-8 duration-500">
+                        {/* Profile Card */}
+                        <div className="glass-panel p-6 rounded-2xl flex flex-col items-center text-center relative overflow-hidden">
+                            <div className="w-20 h-20 bg-indigo-600 rounded-full flex items-center justify-center mb-3 shadow-lg shadow-indigo-500/20 z-10">
+                                <User className="w-10 h-10 text-white" />
+                            </div>
+                            <h2 className="text-xl font-bold text-white z-10">Level {userLevel}</h2>
+                            <p className="text-indigo-300 font-medium text-sm mb-4 z-10">{getTitle()}</p>
+                            <div className="w-full max-w-xs z-10">
+                                <div className="flex justify-between text-xs text-slate-400 mb-1">
                                     <span>XP: {totalXP}</span>
-                                    <span>Next: {totalXP + xpToNextLevel}</span>
+                                    <span>Next: {(userLevel * 2500)}</span>
                                 </div>
-                                <ProgressBar current={2500 - xpToNextLevel} max={2500} color="bg-amber-500" />
-                                <p className="mt-4 text-indigo-300 font-medium">
-                                    {userLevel < 5 ? "Novice Ghostwriter" : userLevel < 10 ? "Content Strategist" : "OMNI Brand Lord"}
-                                </p>
+                                <ProgressBar current={totalXP % 2500} max={2500} color="bg-gradient-to-r from-indigo-500 to-purple-500" />
+                            </div>
+                        </div>
+
+                        {/* Radar Chart */}
+                        <div className="bg-slate-800 rounded-xl p-4 border border-slate-700 flex flex-col items-center">
+                            <h3 className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Attribute Distribution</h3>
+                            <SvgRadarChart stats={normalizedStats} />
+                        </div>
+
+                        {/* Trends */}
+                        <div className="bg-slate-800 rounded-xl p-4 border border-slate-700">
+                            <h3 className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-4 flex items-center gap-2">
+                                <TrendingUp className="w-4 h-4"/> 7-Day Momentum
+                            </h3>
+                            <SvgTrendChart data={trendData} />
+                            <div className="flex justify-center items-center gap-4 mt-4 text-xs text-slate-400">
+                                <div className="flex items-center gap-2"><div className="w-2 h-2 rounded bg-emerald-500"></div> Perfect Day</div>
+                                <div className="flex items-center gap-2"><div className="w-2 h-2 rounded bg-indigo-500"></div> Work Logged</div>
+                            </div>
+                        </div>
+
+                        {/* Skill Tree / Perks */}
+                        <div className="space-y-4">
+                            <h3 className="text-white font-bold text-lg flex items-center gap-2"><Crown className="w-5 h-5 text-amber-500"/> Active Perks</h3>
+                            
+                            {/* Charisma */}
+                            <div className="bg-slate-900 p-4 rounded-xl border border-emerald-900/50">
+                                <div className="flex justify-between items-center mb-2">
+                                    <div className="flex items-center gap-2 text-emerald-400 font-bold">
+                                        <MessageSquare className="w-4 h-4"/> Charisma (Lvl {charismaData.statLvl})
+                                    </div>
+                                    <div className="text-xs text-slate-500">{skillStats.Charisma} XP</div>
+                                </div>
+                                <div className="text-sm text-white mb-1 font-medium">{charismaData.currentPerk?.name || "No Perk"}</div>
+                                <div className="text-xs text-slate-400 italic mb-3">"{charismaData.currentPerk?.desc || "Keep grinding..."}"</div>
+                            </div>
+                             {/* Intellect */}
+                            <div className="bg-slate-900 p-4 rounded-xl border border-blue-900/50">
+                                <div className="flex justify-between items-center mb-2">
+                                    <div className="flex items-center gap-2 text-blue-400 font-bold">
+                                        <PenTool className="w-4 h-4"/> Intellect (Lvl {intellectData.statLvl})
+                                    </div>
+                                    <div className="text-xs text-slate-500">{skillStats.Intellect} XP</div>
+                                </div>
+                                <div className="text-sm text-white mb-1 font-medium">{intellectData.currentPerk?.name || "No Perk"}</div>
+                                <div className="text-xs text-slate-400 italic mb-3">"{intellectData.currentPerk?.desc || "Keep grinding..."}"</div>
+                            </div>
+                             {/* Endurance */}
+                            <div className="bg-slate-900 p-4 rounded-xl border border-rose-900/50">
+                                <div className="flex justify-between items-center mb-2">
+                                    <div className="flex items-center gap-2 text-rose-400 font-bold">
+                                        <Shield className="w-4 h-4"/> Endurance (Lvl {enduranceData.statLvl})
+                                    </div>
+                                    <div className="text-xs text-slate-500">{skillStats.Endurance} XP</div>
+                                </div>
+                                <div className="text-sm text-white mb-1 font-medium">{enduranceData.currentPerk?.name || "No Perk"}</div>
+                                <div className="text-xs text-slate-400 italic mb-3">"{enduranceData.currentPerk?.desc || "Keep grinding..."}"</div>
                             </div>
                         </div>
                     </div>
-
-                    <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
-                         <h3 className="text-white font-bold mb-4 flex items-center gap-2"><Zap className="text-amber-400" /> Stats Radar</h3>
-                         <div className="h-[250px] w-full">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <RadarChart cx="50%" cy="50%" outerRadius="70%" data={statsData}>
-                                    <PolarGrid stroke="#334155" />
-                                    <PolarAngleAxis dataKey="subject" tick={{ fill: '#94a3b8', fontSize: 12 }} />
-                                    <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
-                                    <Radar name="Skills" dataKey="A" stroke="#6366f1" fill="#6366f1" fillOpacity={0.5} />
-                                </RadarChart>
-                            </ResponsiveContainer>
-                         </div>
-                    </div>
-                    <div className="space-y-3">
-                         <StatCard icon={MessageSquare} label="Charisma" value={Math.round(statsData[0].A * 10)} sublabel="Engagement XP" color="text-emerald-400" />
-                         <StatCard icon={PenTool} label="Intellect" value={Math.round(statsData[1].A * 10)} sublabel="Creation XP" color="text-blue-400" />
-                         <StatCard icon={Shield} label="Endurance" value={Math.round(statsData[2].A * 10)} sublabel="Consistency XP" color="text-rose-400" />
-                    </div>
-                </div>
-            );
+                );
+            };
 
             const renderData = () => (
-                <div className="space-y-6">
+                <div className="space-y-6 animate-in fade-in duration-500">
                     <div className="flex justify-between items-center">
                         <h2 className="text-xl font-bold text-white">Log History</h2>
                         <button onClick={() => {
-                            const csvContent = "data:text/csv;charset=utf-8," + "Date,XP\n" + history.map(h => `${h.date},${h.xp}`).join("\n");
+                            const csvContent = "data:text/csv;charset=utf-8," + "Date,XP,Complete\n" + history.map(h => `${h.date},${h.xp},${h.isComplete?'Yes':'No'}`).join("\n");
                             const link = document.createElement("a");
                             link.setAttribute("href", encodeURI(csvContent));
                             link.setAttribute("download", "omni_logs.csv");
@@ -385,12 +589,23 @@
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm text-left text-slate-400">
                                 <thead className="text-xs text-slate-200 uppercase bg-slate-900/50">
-                                    <tr><th className="px-4 py-3">Date</th><th className="px-4 py-3 text-right">XP</th></tr>
+                                    <tr>
+                                        <th className="px-4 py-3">Date</th>
+                                        <th className="px-4 py-3">Status</th>
+                                        <th className="px-4 py-3 text-right">XP</th>
+                                    </tr>
                                 </thead>
                                 <tbody>
                                     {history.map((h) => (
                                         <tr key={h.date} className="border-b border-slate-700 hover:bg-slate-700/50">
                                             <td className="px-4 py-3 font-medium text-white">{h.date}</td>
+                                            <td className="px-4 py-3">
+                                                {h.isComplete ? (
+                                                    <span className="inline-flex items-center gap-1 text-emerald-400 font-bold text-xs"><CheckCircle className="w-3 h-3"/> Perfect</span>
+                                                ) : (
+                                                    <span className="text-slate-500 text-xs">Incomplete</span>
+                                                )}
+                                            </td>
                                             <td className="px-4 py-3 text-right font-bold text-indigo-400">{h.xp}</td>
                                         </tr>
                                     ))}
@@ -398,29 +613,37 @@
                             </table>
                         </div>
                     </div>
+                    <div className="pt-8 border-t border-slate-800 text-center">
+                        <button onClick={() => {
+                            if(confirm("Delete all data? Cannot be undone.")) {
+                                localStorage.removeItem(STORAGE_KEY);
+                                window.location.reload();
+                            }
+                        }} className="text-red-500 text-xs flex items-center justify-center gap-2 mx-auto hover:text-red-400">
+                            <Trash2 className="w-3 h-3" /> Reset Save Data
+                        </button>
+                    </div>
                 </div>
             );
 
             return (
                 <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-indigo-500/30">
                     <div className="max-w-md mx-auto p-4">
-                        <div className="flex flex-col mb-8 gap-4">
+                        <div className="flex flex-col mb-6 gap-4">
                             <div className="flex items-center justify-between">
-                                <h1 className="text-2xl font-black text-white tracking-tight flex items-center gap-2">
-                                    <Scroll className="w-6 h-6 text-indigo-500" /> OMNI
+                                <h1 className="text-xl font-black text-white tracking-tight flex items-center gap-2">
+                                    <Scroll className="w-6 h-6 text-indigo-500" /> OMNI <span className="text-slate-600 text-xs font-normal">v2.1</span>
                                 </h1>
                                 <div className="flex bg-slate-900 p-1 rounded-lg border border-slate-800">
-                                    <button onClick={() => setActiveTab('quest')} className={`p-2 rounded-md ${activeTab === 'quest' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}><Sword className="w-4 h-4" /></button>
-                                    <button onClick={() => setActiveTab('stats')} className={`p-2 rounded-md ${activeTab === 'stats' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}><BarChart2 className="w-4 h-4" /></button>
-                                    <button onClick={() => setActiveTab('data')} className={`p-2 rounded-md ${activeTab === 'data' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}><Save className="w-4 h-4" /></button>
+                                    <button onClick={() => setActiveTab('quest')} className={`p-2 rounded-md transition-colors ${activeTab === 'quest' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}><Sword className="w-4 h-4" /></button>
+                                    <button onClick={() => setActiveTab('stats')} className={`p-2 rounded-md transition-colors ${activeTab === 'stats' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}><User className="w-4 h-4" /></button>
+                                    <button onClick={() => setActiveTab('data')} className={`p-2 rounded-md transition-colors ${activeTab === 'data' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}><Save className="w-4 h-4" /></button>
                                 </div>
                             </div>
                         </div>
-                        <div className="animate-in fade-in duration-500">
-                            {activeTab === 'quest' && renderQuestLog()}
-                            {activeTab === 'stats' && renderStats()}
-                            {activeTab === 'data' && renderData()}
-                        </div>
+                        {activeTab === 'quest' && renderQuestLog()}
+                        {activeTab === 'stats' && renderStats()}
+                        {activeTab === 'data' && renderData()}
                     </div>
                 </div>
             );
