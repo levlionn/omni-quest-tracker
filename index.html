@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Protocol OMNI</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Import Map for React & Libraries -->
+    <script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@18.2.0",
+        "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+        "lucide-react": "https://esm.sh/lucide-react@0.263.1",
+        "recharts": "https://esm.sh/recharts@2.12.0"
+      }
+    }
+    </script>
+
+    <style>
+        body { background-color: #020617; } /* slate-950 */
+        /* Prevent pull-to-refresh on mobile */
+        body { overscroll-behavior-y: none; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel" data-type="module">
+        import React, { useState, useEffect, useMemo } from 'react';
+        import { createRoot } from 'react-dom/client';
+        import { 
+            Sword, Shield, Scroll, Trophy, Save, Calendar, BarChart2, 
+            Target, User, Zap, MessageSquare, Share2, Send, PenTool, 
+            Download, ChevronLeft, ChevronRight, Flame, Trash2 
+        } from 'lucide-react';
+        import { 
+            BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, 
+            Legend, ResponsiveContainer, RadarChart, PolarGrid, 
+            PolarAngleAxis, PolarRadiusAxis, Radar 
+        } from 'recharts';
+
+        // --- Types & Constants ---
+        const STORAGE_KEY = 'omni_protocol_v1_local';
+
+        const INITIAL_LOG = {
+            date: new Date().toISOString().split('T')[0],
+            replyGuy: 0,
+            icpComments: 0,
+            hvInteractions: 0,
+            outboundDMs: 0,
+            regularPosts: 0,
+            hvPosts: 0,
+            xp: 0,
+            completed: false,
+        };
+
+        const TARGETS = {
+            replyGuy: 13,
+            icpComments: 3,
+            hvInteractions: 3,
+            outboundDMs: 2,
+        };
+
+        const XP_VALUES = {
+            replyGuy: 15,
+            icpComments: 60,
+            hvInteractions: 75,
+            outboundDMs: 100,
+            regularPosts: 400,
+            hvPosts: 800
+        };
+
+        // --- Components ---
+
+        const ProgressBar = ({ current, max, color = "bg-blue-500" }) => {
+            const percent = Math.min(100, (current / max) * 100);
+            return (
+                <div className="w-full bg-slate-700 rounded-full h-3 overflow-hidden">
+                    <div 
+                        className={`h-full ${color} transition-all duration-500 ease-out`} 
+                        style={{ width: `${percent}%` }}
+                    />
+                </div>
+            );
+        };
+
+        const StatCard = ({ icon: Icon, label, value, sublabel, color }) => (
+            <div className="bg-slate-800 border border-slate-700 p-4 rounded-xl flex items-center space-x-4 shadow-lg">
+                <div className={`p-3 rounded-lg bg-opacity-20 ${color.replace('text-', 'bg-')}`}>
+                    <Icon className={`w-6 h-6 ${color}`} />
+                </div>
+                <div>
+                    <h3 className="text-slate-400 text-xs uppercase tracking-wider font-bold">{label}</h3>
+                    <div className="text-2xl font-bold text-white">{value}</div>
+                    {sublabel && <div className="text-xs text-slate-500">{sublabel}</div>}
+                </div>
+            </div>
+        );
+
+        const NumberInput = ({ label, value, onChange, target, icon: Icon }) => {
+            const isComplete = value >= target;
+            
+            return (
+                <div className={`p-4 rounded-xl border transition-all duration-300 ${isComplete ? 'bg-emerald-900/20 border-emerald-500/50' : 'bg-slate-800 border-slate-700'}`}>
+                    <div className="flex justify-between items-center mb-3">
+                        <div className="flex items-center space-x-3">
+                            <Icon className={`w-5 h-5 ${isComplete ? 'text-emerald-400' : 'text-slate-400'}`} />
+                            <span className={`font-medium ${isComplete ? 'text-emerald-200' : 'text-slate-200'}`}>{label}</span>
+                        </div>
+                        <div className="text-sm font-mono text-slate-400">
+                            <span className={isComplete ? 'text-emerald-400 font-bold' : 'text-white'}>{value}</span>
+                            <span className="text-slate-600"> / {target}</span>
+                        </div>
+                    </div>
+                    
+                    <ProgressBar current={value} max={target} color={isComplete ? "bg-emerald-500" : "bg-indigo-500"} />
+                    
+                    <div className="flex space-x-2 mt-4">
+                        <button 
+                            onClick={() => onChange(Math.max(0, value - 1))}
+                            className="w-12 h-10 flex items-center justify-center rounded-lg bg-slate-700 text-slate-300 hover:bg-slate-600 active:bg-slate-800"
+                        >
+                            -
+                        </button>
+                        <button 
+                            onClick={() => onChange(value + 1)}
+                            className={`flex-1 h-10 flex items-center justify-center rounded-lg font-bold text-sm transition-colors active:scale-95 transform ${isComplete ? 'bg-emerald-600 hover:bg-emerald-500 text-white' : 'bg-indigo-600 hover:bg-indigo-500 text-white'}`}
+                        >
+                            + Log
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- Main App Component ---
+
+        function OmniQuestTracker() {
+            const [activeTab, setActiveTab] = useState('quest');
+            const [currentDate, setCurrentDate] = useState(new Date().toISOString().split('T')[0]);
+            const [log, setLog] = useState(INITIAL_LOG);
+            const [history, setHistory] = useState([]);
+
+            // Load from LocalStorage
+            useEffect(() => {
+                try {
+                    const saved = localStorage.getItem(STORAGE_KEY);
+                    if (saved) {
+                        const parsedHistory = JSON.parse(saved);
+                        setHistory(parsedHistory);
+                        
+                        const todayEntry = parsedHistory.find(h => h.date === currentDate);
+                        if (todayEntry) {
+                            setLog(todayEntry);
+                        } else {
+                            setLog({ ...INITIAL_LOG, date: currentDate });
+                        }
+                    }
+                } catch (e) {
+                    console.error("Failed to load local history", e);
+                }
+            }, []);
+
+            // Sync log when date changes
+            useEffect(() => {
+                const entry = history.find(h => h.date === currentDate);
+                if (entry) {
+                    setLog(entry);
+                } else {
+                    setLog({ ...INITIAL_LOG, date: currentDate });
+                }
+            }, [currentDate, history]);
+
+            // Calculate XP & Save Logic
+            useEffect(() => {
+                const xp = 
+                    (log.replyGuy * XP_VALUES.replyGuy) +
+                    (log.icpComments * XP_VALUES.icpComments) +
+                    (log.hvInteractions * XP_VALUES.hvInteractions) +
+                    (log.outboundDMs * XP_VALUES.outboundDMs) +
+                    (log.regularPosts * XP_VALUES.regularPosts) +
+                    (log.hvPosts * XP_VALUES.hvPosts);
+                    
+                if (xp !== log.xp) {
+                    const newLog = { ...log, xp };
+                    setLog(newLog);
+                    saveToLocal(newLog);
+                }
+            }, [log.replyGuy, log.icpComments, log.hvInteractions, log.outboundDMs, log.regularPosts, log.hvPosts]);
+
+            const saveToLocal = (newLog) => {
+                const otherEntries = history.filter(h => h.date !== newLog.date);
+                const newHistory = [...otherEntries, newLog].sort((a, b) => b.date.localeCompare(a.date));
+                
+                setHistory(newHistory);
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(newHistory));
+            };
+
+            const handleUpdate = (field, val) => {
+                const newLog = { ...log, [field]: val };
+                setLog(newLog); 
+                saveToLocal(newLog);
+            };
+
+            // Stats
+            const totalXP = useMemo(() => history.reduce((acc, curr) => acc + (curr.xp || 0), 0), [history]);
+            const userLevel = Math.floor(totalXP / 2500) + 1;
+            const xpToNextLevel = 2500 - (totalXP % 2500);
+            
+            const statsData = useMemo(() => {
+                const stats = { Charisma: 0, Intellect: 0, Endurance: 0 };
+                history.forEach(day => {
+                    stats.Charisma += (day.replyGuy * 10) + (day.icpComments * 20);
+                    stats.Intellect += (day.regularPosts * 100) + (day.hvPosts * 200);
+                    stats.Endurance += (day.hvInteractions * 30) + (day.outboundDMs * 50);
+                });
+                const maxVal = Math.max(stats.Charisma, stats.Intellect, stats.Endurance, 100);
+                return [
+                    { subject: 'Charisma', A: (stats.Charisma / maxVal) * 100, fullMark: 100 },
+                    { subject: 'Intellect', A: (stats.Intellect / maxVal) * 100, fullMark: 100 },
+                    { subject: 'Endurance', A: (stats.Endurance / maxVal) * 100, fullMark: 100 },
+                ];
+            }, [history]);
+
+            // Daily Boss
+            const dayOfWeek = new Date(currentDate).getDay(); 
+            let dailyBossTitle = "Rest Day";
+            let dailyBossDesc = "Review stats and prep for the week.";
+            let hvPostTarget = 0;
+
+            if (dayOfWeek >= 1 && dayOfWeek <= 3) {
+                dailyBossTitle = "Regular Post Boss";
+                dailyBossDesc = "Write & Ship 1 Regular Brand Post";
+            } else if (dayOfWeek === 4) {
+                dailyBossTitle = "The High-Value Raid";
+                dailyBossDesc = "Write & Ship 1 HV/Long-form Post";
+                hvPostTarget = 1;
+            } else if (dayOfWeek === 5) {
+                dailyBossTitle = "Side Quest Friday";
+                dailyBossDesc = "Focus on Outbound & Maintenance";
+            }
+
+            // Render Helper
+            const renderQuestLog = () => (
+                <div className="space-y-6 pb-20">
+                    <div className="flex items-center justify-between bg-slate-800 p-4 rounded-xl border border-slate-700">
+                        <button onClick={() => {
+                            const d = new Date(currentDate);
+                            d.setDate(d.getDate() - 1);
+                            setCurrentDate(d.toISOString().split('T')[0]);
+                        }} className="p-2 hover:bg-slate-700 rounded-lg text-slate-400">
+                            <ChevronLeft />
+                        </button>
+                        <div className="text-center">
+                            <div className="text-xs text-slate-400 uppercase tracking-widest font-bold mb-1">Quest Log</div>
+                            <div className="text-lg text-white font-mono flex items-center justify-center gap-2">
+                                <Calendar className="w-4 h-4 text-indigo-400" /> {currentDate}
+                            </div>
+                        </div>
+                        <button onClick={() => {
+                            const d = new Date(currentDate);
+                            d.setDate(d.getDate() + 1);
+                            setCurrentDate(d.toISOString().split('T')[0]);
+                        }} className="p-2 hover:bg-slate-700 rounded-lg text-slate-400">
+                            <ChevronRight />
+                        </button>
+                    </div>
+
+                    <div className="bg-gradient-to-r from-indigo-900 to-slate-900 p-6 rounded-2xl border border-indigo-500/30 relative overflow-hidden shadow-2xl">
+                        <div className="absolute top-0 right-0 p-4 opacity-10">
+                            <Flame className="w-32 h-32" />
+                        </div>
+                        <div className="relative z-10 text-center">
+                            <h2 className="text-sm uppercase tracking-widest font-bold text-indigo-200/60 mb-1">Daily XP Gained</h2>
+                            <div className="text-6xl font-black text-indigo-300 font-mono my-2 drop-shadow-lg">{log.xp}</div>
+                        </div>
+                    </div>
+
+                    {(dayOfWeek >= 1 && dayOfWeek <= 4) && (
+                        <div className="bg-slate-900 border-2 border-red-900/50 rounded-xl p-6 relative shadow-xl">
+                            <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-red-600 text-white px-4 py-1 text-xs font-bold uppercase rounded-full shadow-lg whitespace-nowrap">
+                                Boss Battle
+                            </div>
+                            <div className="flex flex-col items-center justify-between gap-4 mt-2 text-center">
+                                <div>
+                                    <h3 className="text-xl font-bold text-white flex items-center justify-center gap-2">
+                                        <Sword className="text-red-500 w-5 h-5" />
+                                        {dailyBossTitle}
+                                        <Sword className="text-red-500 w-5 h-5 transform scale-x-[-1]" />
+                                    </h3>
+                                    <p className="text-slate-400 text-sm mt-1">{dailyBossDesc}</p>
+                                </div>
+                                <div className="w-full">
+                                    {hvPostTarget > 0 ? (
+                                        <button onClick={() => handleUpdate('hvPosts', log.hvPosts >= 1 ? 0 : 1)}
+                                            className={`w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all duration-300 ${log.hvPosts ? 'bg-amber-500 text-black shadow-amber-900/20' : 'bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-750'}`}>
+                                            <Trophy className="w-5 h-5" />
+                                            {log.hvPosts ? "RAID COMPLETE" : "Complete Raid"}
+                                        </button>
+                                    ) : (
+                                        <button onClick={() => handleUpdate('regularPosts', log.regularPosts >= 1 ? 0 : 1)}
+                                            className={`w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all duration-300 ${log.regularPosts ? 'bg-emerald-500 text-white shadow-emerald-900/20' : 'bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-750'}`}>
+                                            <Sword className="w-5 h-5" />
+                                            {log.regularPosts ? "BOSS DEFEATED" : "Slay Boss"}
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="grid grid-cols-1 gap-3">
+                        <NumberInput label="Reply Guys" value={log.replyGuy} target={TARGETS.replyGuy} onChange={(v) => handleUpdate('replyGuy', v)} icon={MessageSquare} />
+                        <NumberInput label="ICP Sniping" value={log.icpComments} target={TARGETS.icpComments} onChange={(v) => handleUpdate('icpComments', v)} icon={Target} />
+                        <NumberInput label="HV Interactions" value={log.hvInteractions} target={TARGETS.hvInteractions} onChange={(v) => handleUpdate('hvInteractions', v)} icon={Share2} />
+                        <NumberInput label="Outbound DMs" value={log.outboundDMs} target={TARGETS.outboundDMs} onChange={(v) => handleUpdate('outboundDMs', v)} icon={Send} />
+                    </div>
+                </div>
+            );
+
+            const renderStats = () => (
+                <div className="space-y-6 pb-20">
+                    <div className="bg-slate-800 p-8 rounded-2xl border border-slate-700 text-center relative overflow-hidden">
+                        <div className="relative z-10">
+                            <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Current Rank</h2>
+                            <div className="text-5xl font-black text-white mb-4">Lvl {userLevel}</div>
+                            <div className="max-w-md mx-auto">
+                                <div className="flex justify-between text-xs text-slate-400 mb-2">
+                                    <span>XP: {totalXP}</span>
+                                    <span>Next: {totalXP + xpToNextLevel}</span>
+                                </div>
+                                <ProgressBar current={2500 - xpToNextLevel} max={2500} color="bg-amber-500" />
+                                <p className="mt-4 text-indigo-300 font-medium">
+                                    {userLevel < 5 ? "Novice Ghostwriter" : userLevel < 10 ? "Content Strategist" : "OMNI Brand Lord"}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
+                         <h3 className="text-white font-bold mb-4 flex items-center gap-2"><Zap className="text-amber-400" /> Stats Radar</h3>
+                         <div className="h-[250px] w-full">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <RadarChart cx="50%" cy="50%" outerRadius="70%" data={statsData}>
+                                    <PolarGrid stroke="#334155" />
+                                    <PolarAngleAxis dataKey="subject" tick={{ fill: '#94a3b8', fontSize: 12 }} />
+                                    <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
+                                    <Radar name="Skills" dataKey="A" stroke="#6366f1" fill="#6366f1" fillOpacity={0.5} />
+                                </RadarChart>
+                            </ResponsiveContainer>
+                         </div>
+                    </div>
+                    <div className="space-y-3">
+                         <StatCard icon={MessageSquare} label="Charisma" value={Math.round(statsData[0].A * 10)} sublabel="Engagement XP" color="text-emerald-400" />
+                         <StatCard icon={PenTool} label="Intellect" value={Math.round(statsData[1].A * 10)} sublabel="Creation XP" color="text-blue-400" />
+                         <StatCard icon={Shield} label="Endurance" value={Math.round(statsData[2].A * 10)} sublabel="Consistency XP" color="text-rose-400" />
+                    </div>
+                </div>
+            );
+
+            const renderData = () => (
+                <div className="space-y-6">
+                    <div className="flex justify-between items-center">
+                        <h2 className="text-xl font-bold text-white">Log History</h2>
+                        <button onClick={() => {
+                            const csvContent = "data:text/csv;charset=utf-8," + "Date,XP\n" + history.map(h => `${h.date},${h.xp}`).join("\n");
+                            const link = document.createElement("a");
+                            link.setAttribute("href", encodeURI(csvContent));
+                            link.setAttribute("download", "omni_logs.csv");
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                        }} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
+                            <Download className="w-4 h-4" /> Export
+                        </button>
+                    </div>
+                    <div className="bg-slate-800 rounded-xl overflow-hidden border border-slate-700">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm text-left text-slate-400">
+                                <thead className="text-xs text-slate-200 uppercase bg-slate-900/50">
+                                    <tr><th className="px-4 py-3">Date</th><th className="px-4 py-3 text-right">XP</th></tr>
+                                </thead>
+                                <tbody>
+                                    {history.map((h) => (
+                                        <tr key={h.date} className="border-b border-slate-700 hover:bg-slate-700/50">
+                                            <td className="px-4 py-3 font-medium text-white">{h.date}</td>
+                                            <td className="px-4 py-3 text-right font-bold text-indigo-400">{h.xp}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            );
+
+            return (
+                <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-indigo-500/30">
+                    <div className="max-w-md mx-auto p-4">
+                        <div className="flex flex-col mb-8 gap-4">
+                            <div className="flex items-center justify-between">
+                                <h1 className="text-2xl font-black text-white tracking-tight flex items-center gap-2">
+                                    <Scroll className="w-6 h-6 text-indigo-500" /> OMNI
+                                </h1>
+                                <div className="flex bg-slate-900 p-1 rounded-lg border border-slate-800">
+                                    <button onClick={() => setActiveTab('quest')} className={`p-2 rounded-md ${activeTab === 'quest' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}><Sword className="w-4 h-4" /></button>
+                                    <button onClick={() => setActiveTab('stats')} className={`p-2 rounded-md ${activeTab === 'stats' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}><BarChart2 className="w-4 h-4" /></button>
+                                    <button onClick={() => setActiveTab('data')} className={`p-2 rounded-md ${activeTab === 'data' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}><Save className="w-4 h-4" /></button>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="animate-in fade-in duration-500">
+                            {activeTab === 'quest' && renderQuestLog()}
+                            {activeTab === 'stats' && renderStats()}
+                            {activeTab === 'data' && renderData()}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = createRoot(document.getElementById('root'));
+        root.render(<OmniQuestTracker />);
+    </script>
+</body>
+</html>
