@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Daily Quests RPG v5.1</title>
+    <title>Daily Quests RPG v5.2</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -245,13 +245,13 @@
             const getDailyBossRequirements = (dateStr) => {
                 const day = new Date(dateStr).getDay(); // 0=Sun, 1=Mon...
                 // Mon (1): Collab + 1 Short
-                if (day === 1) return { title: "Collab Giant", desc: "Post Collab & Short", shorts: 1, collab: 1, thread: 0, reg: 0, tracker: false };
+                if (day === 1) return { title: "The Challenge", desc: "Post Collab & Short", shorts: 1, collab: 1, thread: 0, reg: 0, tracker: false };
                 // Tue (2): Update
-                if (day === 2) return { title: "Content Grind", desc: "Post Update", shorts: 0, collab: 0, thread: 0, reg: 1, tracker: false };
+                if (day === 2) return { title: "The Challenge", desc: "Post Update", shorts: 0, collab: 0, thread: 0, reg: 1, tracker: false };
                 // Wed (3): Thread + 1 Short
-                if (day === 3) return { title: "Thread Weaver", desc: "Research Thread & Short", shorts: 1, collab: 0, thread: 1, reg: 0, tracker: false };
+                if (day === 3) return { title: "The Challenge", desc: "Research Thread & Short", shorts: 1, collab: 0, thread: 1, reg: 0, tracker: false };
                 // Thu (4): Update
-                if (day === 4) return { title: "Content Grind", desc: "Post Update", shorts: 0, collab: 0, thread: 0, reg: 1, tracker: false };
+                if (day === 4) return { title: "The Challenge", desc: "Post Update", shorts: 0, collab: 0, thread: 0, reg: 1, tracker: false };
                 // Fri (5): Update + Short + Tracker
                 if (day === 5) return { title: "The Closer", desc: "Update, Short & Tracker", shorts: 1, collab: 0, thread: 0, reg: 1, tracker: true };
                 
@@ -331,6 +331,7 @@
                 let currentStreak = 0;
                 let checkDate = new Date();
                 const toIso = (d) => d.toISOString().split('T')[0];
+                const todayStr = toIso(new Date());
                 
                 for (let i = 0; i < 365; i++) {
                     const dateStr = toIso(checkDate);
@@ -346,7 +347,7 @@
                     } else {
                         // No entry exists for this day
                         // If it's today, we don't break streak yet
-                        if (dateStr === new Date().toISOString().split('T')[0]) {
+                        if (dateStr === todayStr) {
                              checkDate.setDate(checkDate.getDate() - 1);
                              continue;
                         }
@@ -365,7 +366,12 @@
                         currentStreak++;
                         checkDate.setDate(checkDate.getDate() - 1);
                     } else {
-                        break; // Streak broken
+                        // If it's today and simply incomplete, don't break streak, just ignore today
+                        if (dateStr === todayStr) {
+                             checkDate.setDate(checkDate.getDate() - 1);
+                             continue;
+                        }
+                        break; // Streak broken on past day
                     }
                 }
                 return currentStreak;
@@ -605,7 +611,7 @@
                         <div className="flex flex-col mb-6 gap-4">
                             <div className="flex items-center justify-between">
                                 <h1 className="text-xl font-black text-white tracking-tight flex items-center gap-2">
-                                    <Scroll className="w-6 h-6 text-indigo-500" /> OMNI <span className="text-slate-600 text-xs font-normal">v5.1</span>
+                                    <Scroll className="w-6 h-6 text-indigo-500" /> OMNI <span className="text-slate-600 text-xs font-normal">v5.2</span>
                                 </h1>
                                 <div className="flex bg-slate-900 p-1 rounded-lg border border-slate-800">
                                     <button onClick={() => setActiveTab('quest')} className={`p-2 rounded-md transition-colors ${activeTab === 'quest' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}><Sword className="w-4 h-4" /></button>
