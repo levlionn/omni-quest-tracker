@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Daily Quests RPG v5.2</title>
+    <title>Daily Quests RPG v5.3</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -252,15 +252,15 @@
             const getDailyBossRequirements = (dateStr) => {
                 const day = new Date(dateStr).getDay(); // 0=Sun, 1=Mon...
                 // Mon (1): Collab + 1 Short
-                if (day === 1) return { title: "The Challenge", desc: "Post Collab & Short", shorts: 1, collab: 1, thread: 0, reg: 0, tracker: false };
+                if (day === 0) return { title: "The Challenge", desc: "Post Collab & Short", shorts: 1, collab: 1, thread: 0, reg: 0, tracker: false };
                 // Tue (2): Update
-                if (day === 2) return { title: "The Challenge", desc: "Post Update", shorts: 0, collab: 0, thread: 0, reg: 1, tracker: false };
+                if (day === 1) return { title: "The Challenge", desc: "Post Update", shorts: 0, collab: 0, thread: 0, reg: 1, tracker: false };
                 // Wed (3): Thread + 1 Short
-                if (day === 3) return { title: "The Challenge", desc: "Research Thread & Short", shorts: 1, collab: 0, thread: 1, reg: 0, tracker: false };
+                if (day === 2) return { title: "The Challenge", desc: "Research Thread & Short", shorts: 1, collab: 0, thread: 1, reg: 0, tracker: false };
                 // Thu (4): Update
-                if (day === 4) return { title: "The Challenge", desc: "Post Update", shorts: 0, collab: 0, thread: 0, reg: 1, tracker: false };
+                if (day === 3) return { title: "The Challenge", desc: "Post Update", shorts: 0, collab: 0, thread: 0, reg: 1, tracker: false };
                 // Fri (5): Update + Short + Tracker
-                if (day === 5) return { title: "The Closer", desc: "Update, Short & Tracker", shorts: 1, collab: 0, thread: 0, reg: 1, tracker: true };
+                if (day === 4) return { title: "The Closer", desc: "Update, Short & Tracker", shorts: 1, collab: 0, thread: 0, reg: 1, tracker: true };
                 
                 return null; // Weekend
             };
@@ -339,9 +339,6 @@
                 let checkDate = new Date();
                 const todayStr = getLocalDate(); // Use local date
                 
-                // Convert to date object for iteration to avoid TZ issues during subtraction
-                // We will use the string representation for comparison
-                
                 for (let i = 0; i < 365; i++) {
                     // Safe date string generation manually to ensure local date consistency
                     const offset = checkDate.getTimezoneOffset() * 60000;
@@ -389,10 +386,14 @@
                 return currentStreak;
             };
 
+            // Calculate Total YouTube Shorts
+            const totalYT = useMemo(() => {
+                return history.reduce((acc, curr) => acc + (curr.ytShorts || 0), 0);
+            }, [history]);
+
             const streaks = useMemo(() => ({
                 omni: calculateStreak('omni'),
-                fitness: calculateStreak('fitness'),
-                youtube: calculateStreak('youtube')
+                fitness: calculateStreak('fitness')
             }), [history, log]);
 
             // Total XP & Level
@@ -460,9 +461,9 @@
                                  </div>
                              </div>
                              <div className="bg-slate-800 p-3 rounded-xl border border-purple-500/30 text-center">
-                                 <div className="text-[10px] uppercase text-purple-400 font-bold mb-1">YT Streak</div>
+                                 <div className="text-[10px] uppercase text-purple-400 font-bold mb-1">YT Posted</div>
                                  <div className="text-2xl font-black text-white flex justify-center items-center gap-1">
-                                     <Video className="w-4 h-4 text-purple-500"/> {streaks.youtube}
+                                     <Video className="w-4 h-4 text-purple-500"/> {totalYT}
                                  </div>
                              </div>
                         </div>
@@ -623,7 +624,7 @@
                         <div className="flex flex-col mb-6 gap-4">
                             <div className="flex items-center justify-between">
                                 <h1 className="text-xl font-black text-white tracking-tight flex items-center gap-2">
-                                    <Scroll className="w-6 h-6 text-indigo-500" /> Daily Quests <span className="text-slate-600 text-xs font-normal">v5.2</span>
+                                    <Scroll className="w-6 h-6 text-indigo-500" /> Daily Quests <span className="text-slate-600 text-xs font-normal">v5.3</span>
                                 </h1>
                                 <div className="flex bg-slate-900 p-1 rounded-lg border border-slate-800">
                                     <button onClick={() => setActiveTab('quest')} className={`p-2 rounded-md transition-colors ${activeTab === 'quest' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}><Sword className="w-4 h-4" /></button>
