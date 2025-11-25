@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Daily Quests RPG v5.0</title>
+    <title>Daily Quests RPG v5.1</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -17,8 +17,7 @@
       "imports": {
         "react": "https://esm.sh/react@18.2.0",
         "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
-        "lucide-react": "https://esm.sh/lucide-react@0.263.1",
-        "date-fns": "https://esm.sh/date-fns@2.30.0"
+        "lucide-react": "https://esm.sh/lucide-react@0.263.1"
       }
     }
     </script>
@@ -39,11 +38,6 @@
         .completion-glow {
             animation: pulse-emerald 2s infinite;
         }
-        .calendar-grid {
-            display: grid;
-            grid-template-columns: repeat(7, 1fr);
-            gap: 0.5rem;
-        }
     </style>
 </head>
 <body>
@@ -53,16 +47,12 @@
         import React, { useState, useEffect, useMemo } from 'react';
         import { createRoot } from 'react-dom/client';
         import { 
-            Sword, Shield, Scroll, Trophy, Save, Calendar as CalIcon, BarChart2, 
+            Sword, Shield, Scroll, Trophy, Save, Calendar, BarChart2, 
             Target, User, Zap, MessageSquare, Share2, Send, PenTool, 
             Download, ChevronLeft, ChevronRight, Flame, Trash2, Crown, 
             TrendingUp, Lock, CheckCircle, Heart, Video, Users, BookOpen,
             Palette, Briefcase, CheckSquare, Dumbbell
         } from 'lucide-react';
-        import { 
-            format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, 
-            eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, isFuture, isToday
-        } from 'date-fns';
 
         // --- Constants ---
         const STORAGE_KEY = 'daily_quests_v5_local';
@@ -228,7 +218,6 @@
         function DailyQuestTracker() {
             const [activeTab, setActiveTab] = useState('quest');
             const [currentDate, setCurrentDate] = useState(new Date().toISOString().split('T')[0]);
-            const [currentMonth, setCurrentMonth] = useState(new Date());
             const [log, setLog] = useState(INITIAL_LOG);
             const [history, setHistory] = useState([]);
 
@@ -347,11 +336,6 @@
                     const dateStr = toIso(checkDate);
                     const entry = sorted.find(h => h.date === dateStr);
                     
-                    // Check completion status for this date/category
-                    // We must reconstruct the logic because we didn't save historical breakdown bools
-                    // or rely on entry data if we saved it (we didn't explicitly save 'omniComplete' etc before)
-                    // So let's calculate on fly if entry exists
-                    
                     let isDone = false;
                     let isRequired = true;
 
@@ -363,7 +347,6 @@
                         // No entry exists for this day
                         // If it's today, we don't break streak yet
                         if (dateStr === new Date().toISOString().split('T')[0]) {
-                             // Treat as 'in progress', don't increment, don't break
                              checkDate.setDate(checkDate.getDate() - 1);
                              continue;
                         }
@@ -374,7 +357,6 @@
                     }
 
                     if (!isRequired) {
-                        // Skip day without breaking streak
                         checkDate.setDate(checkDate.getDate() - 1);
                         continue;
                     }
@@ -423,81 +405,6 @@
                 });
                 return stats;
             }, [history]);
-
-            // --- Calendar Render Helpers ---
-            const renderCalendar = () => {
-                const monthStart = startOfMonth(currentMonth);
-                const monthEnd = endOfMonth(monthStart);
-                const startDate = startOfWeek(monthStart);
-                const endDate = endOfWeek(monthEnd);
-                const days = eachDayOfInterval({ start: startDate, end: endDate });
-
-                const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-                return (
-                    <div className="space-y-4 animate-in fade-in duration-500">
-                         <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-xl font-bold text-white">{format(currentMonth, 'MMMM yyyy')}</h2>
-                            <div className="flex gap-2">
-                                <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="p-2 bg-slate-800 rounded-lg text-slate-400 hover:text-white"><ChevronLeft/></button>
-                                <button onClick={() => setCurrentMonth(new Date())} className="p-2 bg-slate-800 rounded-lg text-slate-400 hover:text-white text-xs font-bold">Today</button>
-                                <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="p-2 bg-slate-800 rounded-lg text-slate-400 hover:text-white"><ChevronRight/></button>
-                            </div>
-                        </div>
-
-                        <div className="calendar-grid mb-2">
-                            {weekDays.map(d => <div key={d} className="text-center text-xs font-bold text-slate-500 uppercase">{d}</div>)}
-                        </div>
-                        
-                        <div className="calendar-grid">
-                            {days.map(day => {
-                                const dateStr = format(day, 'yyyy-MM-dd');
-                                const isCurrentMonth = isSameMonth(day, currentMonth);
-                                const isTodayDate = isSameDay(day, new Date());
-                                const entry = history.find(h => h.date === dateStr);
-                                const reqs = getDailyBossRequirements(dateStr);
-                                
-                                const omniDone = entry ? checkCategoryCompletion(entry, 'omni') : false;
-                                const fitDone = entry ? checkCategoryCompletion(entry, 'fitness') : false;
-                                const ytDone = entry ? checkCategoryCompletion(entry, 'youtube') : false;
-
-                                return (
-                                    <div key={dateStr} className={`
-                                        min-h-[80px] p-2 rounded-lg border flex flex-col justify-between
-                                        ${!isCurrentMonth ? 'opacity-30' : ''}
-                                        ${isTodayDate ? 'bg-indigo-900/30 border-indigo-500' : 'bg-slate-800/50 border-slate-700/50'}
-                                    `}>
-                                        <div className="flex justify-between items-start">
-                                            <span className={`text-xs font-bold ${isTodayDate ? 'text-white' : 'text-slate-500'}`}>{format(day, 'd')}</span>
-                                            {isFuture(day) && reqs && (
-                                                <div className="flex gap-1">
-                                                     {reqs.shorts > 0 && <div className="w-1.5 h-1.5 rounded-full bg-purple-500" title="Shorts"></div>}
-                                                     {reqs.collab > 0 && <div className="w-1.5 h-1.5 rounded-full bg-blue-500" title="Collab"></div>}
-                                                     {reqs.thread > 0 && <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" title="Thread"></div>}
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {!isFuture(day) && (
-                                            <div className="flex gap-1 mt-2 justify-center">
-                                                {omniDone && <div className="w-2 h-2 rounded-full bg-blue-500 shadow-lg shadow-blue-500/50"></div>}
-                                                {fitDone && <div className="w-2 h-2 rounded-full bg-rose-500 shadow-lg shadow-rose-500/50"></div>}
-                                                {ytDone && <div className="w-2 h-2 rounded-full bg-purple-500 shadow-lg shadow-purple-500/50"></div>}
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                        
-                        <div className="flex justify-center gap-4 text-xs text-slate-400 mt-4">
-                            <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-blue-500"></div> OMNI Job</div>
-                            <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-rose-500"></div> Fitness</div>
-                            <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-purple-500"></div> YouTube</div>
-                        </div>
-                    </div>
-                );
-            };
 
             const renderQuestLog = () => {
                 const reqs = getDailyBossRequirements(currentDate);
@@ -605,7 +512,7 @@
                     skillStats.Charisma, 
                     skillStats.Intellect, 
                     skillStats.Fitness, 
-                    skillStats.Creativity,
+                    skillStats.Creativity, 
                     skillStats.WorkEthic,
                     100
                 );
@@ -643,24 +550,73 @@
                 );
             };
 
+            const renderData = () => (
+                <div className="space-y-6 animate-in fade-in duration-500">
+                    <div className="flex justify-between items-center">
+                        <h2 className="text-xl font-bold text-white">Log History</h2>
+                        <button onClick={() => {
+                            const csvContent = "data:text/csv;charset=utf-8," + "Date,XP,Cardio\n" + history.map(h => `${h.date},${h.xp},${h.cardioMinutes}`).join("\n");
+                            const link = document.createElement("a");
+                            link.setAttribute("href", encodeURI(csvContent));
+                            link.setAttribute("download", "daily_quests_log.csv");
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                        }} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
+                            <Download className="w-4 h-4" /> Export
+                        </button>
+                    </div>
+                    <div className="bg-slate-800 rounded-xl overflow-hidden border border-slate-700">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm text-left text-slate-400">
+                                <thead className="text-xs text-slate-200 uppercase bg-slate-900/50">
+                                    <tr>
+                                        <th className="px-4 py-3">Date</th>
+                                        <th className="px-4 py-3">XP</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {history.map((h) => (
+                                        <tr key={h.date} className="border-b border-slate-700 hover:bg-slate-700/50">
+                                            <td className="px-4 py-3 font-medium text-white">{h.date}</td>
+                                            <td className="px-4 py-3 text-right font-bold text-indigo-400">{h.xp}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div className="pt-8 border-t border-slate-800 text-center">
+                        <button onClick={() => {
+                            if(confirm("Delete all data? Cannot be undone.")) {
+                                localStorage.removeItem(STORAGE_KEY);
+                                window.location.reload();
+                            }
+                        }} className="text-red-500 text-xs flex items-center justify-center gap-2 mx-auto hover:text-red-400">
+                            <Trash2 className="w-3 h-3" /> Reset Save Data
+                        </button>
+                    </div>
+                </div>
+            );
+
             return (
                 <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-indigo-500/30">
                     <div className="max-w-md mx-auto p-4">
                         <div className="flex flex-col mb-6 gap-4">
                             <div className="flex items-center justify-between">
                                 <h1 className="text-xl font-black text-white tracking-tight flex items-center gap-2">
-                                    <Scroll className="w-6 h-6 text-indigo-500" /> OMNI <span className="text-slate-600 text-xs font-normal">v5.0</span>
+                                    <Scroll className="w-6 h-6 text-indigo-500" /> OMNI <span className="text-slate-600 text-xs font-normal">v5.1</span>
                                 </h1>
                                 <div className="flex bg-slate-900 p-1 rounded-lg border border-slate-800">
                                     <button onClick={() => setActiveTab('quest')} className={`p-2 rounded-md transition-colors ${activeTab === 'quest' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}><Sword className="w-4 h-4" /></button>
-                                    <button onClick={() => setActiveTab('calendar')} className={`p-2 rounded-md transition-colors ${activeTab === 'calendar' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}><CalIcon className="w-4 h-4" /></button>
                                     <button onClick={() => setActiveTab('stats')} className={`p-2 rounded-md transition-colors ${activeTab === 'stats' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}><User className="w-4 h-4" /></button>
+                                    <button onClick={() => setActiveTab('data')} className={`p-2 rounded-md transition-colors ${activeTab === 'data' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}><Save className="w-4 h-4" /></button>
                                 </div>
                             </div>
                         </div>
                         {activeTab === 'quest' && renderQuestLog()}
-                        {activeTab === 'calendar' && renderCalendar()}
                         {activeTab === 'stats' && renderStats()}
+                        {activeTab === 'data' && renderData()}
                     </div>
                 </div>
             );
