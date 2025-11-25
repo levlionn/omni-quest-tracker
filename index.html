@@ -57,8 +57,15 @@
         // --- Constants ---
         const STORAGE_KEY = 'daily_quests_v5_local';
 
+        // Helper to get local date string (YYYY-MM-DD) instead of UTC
+        const getLocalDate = () => {
+            const d = new Date();
+            const offset = d.getTimezoneOffset() * 60000;
+            return new Date(d.getTime() - offset).toISOString().split('T')[0];
+        };
+
         const INITIAL_LOG = {
-            date: new Date().toISOString().split('T')[0],
+            date: getLocalDate(),
             // Charisma Inputs
             replyGuy: 0,
             icpComments: 0,
@@ -217,7 +224,7 @@
 
         function DailyQuestTracker() {
             const [activeTab, setActiveTab] = useState('quest');
-            const [currentDate, setCurrentDate] = useState(new Date().toISOString().split('T')[0]);
+            const [currentDate, setCurrentDate] = useState(getLocalDate());
             const [log, setLog] = useState(INITIAL_LOG);
             const [history, setHistory] = useState([]);
 
@@ -330,11 +337,16 @@
                 const sorted = [...history].sort((a, b) => new Date(b.date) - new Date(a.date));
                 let currentStreak = 0;
                 let checkDate = new Date();
-                const toIso = (d) => d.toISOString().split('T')[0];
-                const todayStr = toIso(new Date());
+                const todayStr = getLocalDate(); // Use local date
+                
+                // Convert to date object for iteration to avoid TZ issues during subtraction
+                // We will use the string representation for comparison
                 
                 for (let i = 0; i < 365; i++) {
-                    const dateStr = toIso(checkDate);
+                    // Safe date string generation manually to ensure local date consistency
+                    const offset = checkDate.getTimezoneOffset() * 60000;
+                    const dateStr = new Date(checkDate.getTime() - offset).toISOString().split('T')[0];
+                    
                     const entry = sorted.find(h => h.date === dateStr);
                     
                     let isDone = false;
@@ -611,7 +623,7 @@
                         <div className="flex flex-col mb-6 gap-4">
                             <div className="flex items-center justify-between">
                                 <h1 className="text-xl font-black text-white tracking-tight flex items-center gap-2">
-                                    <Scroll className="w-6 h-6 text-indigo-500" /> Daily Quests ⚔️ <span className="text-slate-600 text-xs font-normal">v5.2</span>
+                                    <Scroll className="w-6 h-6 text-indigo-500" /> Daily Quests <span className="text-slate-600 text-xs font-normal">v5.2</span>
                                 </h1>
                                 <div className="flex bg-slate-900 p-1 rounded-lg border border-slate-800">
                                     <button onClick={() => setActiveTab('quest')} className={`p-2 rounded-md transition-colors ${activeTab === 'quest' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}><Sword className="w-4 h-4" /></button>
