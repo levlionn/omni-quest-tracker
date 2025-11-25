@@ -488,15 +488,15 @@
                                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-red-600 px-3 py-0.5 rounded-full text-[10px] font-bold uppercase text-white tracking-wider shadow-lg">Boss Fight</div>
                                 <div className="text-center mb-4 mt-1">
                                     <h3 className="text-white font-bold text-lg flex items-center justify-center gap-2">
-                                        <Sword className="w-5 h-5 text-red-500"/> Challenge
+                                        <Sword className="w-5 h-5 text-red-500"/> Boss Fight(s)
                                     </h3>
                                     <p className="text-slate-400 text-xs">{reqs.desc}</p>
                                 </div>
                                 
                                 <div className="space-y-3">
                                     {reqs.shorts > 0 && (
-                                        <button onClick={() => handleUpdate('ytShorts', log.ytShorts < reqs.shorts ? log.ytShorts + 1 : log.ytShorts)} className={`w-full py-3 rounded-lg font-bold flex items-center justify-between px-4 transition-all ${log.ytShorts >= reqs.shorts ? 'bg-purple-500/20 text-purple-200 border border-purple-500' : 'bg-slate-800 text-slate-300 border border-slate-700'}`}>
-                                            <span className="flex items-center gap-2"><Video className="w-4 h-4"/> YT Shorts (Creativity)</span>
+                                        <button onClick={() => handleUpdate('ytShorts', log.ytShorts ? 0 : 1)} className={`w-full py-3 rounded-lg font-bold flex items-center justify-between px-4 transition-all ${log.ytShorts >= reqs.shorts ? 'bg-purple-500/20 text-purple-200 border border-purple-500' : 'bg-slate-800 text-slate-300 border border-slate-700'}`}>
+                                            <span className="flex items-center gap-2"><Video className="w-4 h-4"/> Post a YT Short</span>
                                             <span>{log.ytShorts}/{reqs.shorts}</span>
                                         </button>
                                     )}
@@ -696,7 +696,7 @@
                         <div className="flex flex-col mb-6 gap-4">
                             <div className="flex items-center justify-between">
                                 <h1 className="text-xl font-black text-white tracking-tight flex items-center gap-2">
-                                    <Scroll className="w-6 h-6 text-indigo-500" /> OMNI <span className="text-slate-600 text-xs font-normal">v4.0</span>
+                                    <Scroll className="w-6 h-6 text-indigo-500" /> Daily Quests ⚔️ <span className="text-slate-600 text-xs font-normal">v4.0</span>
                                 </h1>
                                 <div className="flex bg-slate-900 p-1 rounded-lg border border-slate-800">
                                     <button onClick={() => setActiveTab('quest')} className={`p-2 rounded-md transition-colors ${activeTab === 'quest' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}><Sword className="w-4 h-4" /></button>
