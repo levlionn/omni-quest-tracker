@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Daily Quest Tracker - RPG Edition</title>
+    <title>DailyOS</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -45,6 +45,7 @@
                             green: '#388e3c',
                             yellow: '#fbc02d',
                             dark: '#1a1a1a',
+                            grey: '#9e9e9e'
                         }
                     },
                     boxShadow: {
@@ -112,13 +113,14 @@
             MessageSquare, Share2, Send, PenTool, Download, ChevronLeft, ChevronRight, 
             Flame, Trash2, Crown, TrendingUp, Lock, CheckCircle, Heart, Video, Users, 
             BookOpen, Palette, Briefcase, CheckSquare, Dumbbell, History, ChevronDown, ChevronUp,
-            Activity, Upload, Gamepad2, Settings, X, Plus, Minus, Edit3, Trash
+            Activity, Upload, Gamepad2, Settings, X, Plus, Minus, Edit3, Check, Trash, Notebook, Book
         } from 'lucide-react';
 
         // --- Constants ---
         const STORAGE_KEY = 'daily_quests_v5_local';
         const ACTION_KEY = 'daily_quests_v5_actions';
         const SCHEDULE_KEY = 'daily_quests_v5_schedule';
+        const NOTES_KEY = 'daily_quests_v5_notes';
 
         const getLocalDate = () => {
             const d = new Date();
@@ -126,47 +128,41 @@
             return new Date(d.getTime() - offset).toISOString().split('T')[0];
         };
 
-        const STAT_TYPES = ['Creativity', 'Intellect', 'WorkEthic', 'Charisma', 'Fitness'];
-
-        // Initial default schedule - defines the TEMPLATE for tasks
+        // Updated Schedule based on user request (Mapped to correct JS Day Indices: 0=Sun, 1=Mon...)
         const DEFAULT_SCHEDULE = [
-
-            { day: 0, title: "Monday", desc: "Start Strong", tasks: [
-               { id: 't1', label: 'Post on X', target: 1, stat: 'Intellect', xp: 300 },
+            { day: 0, title: "Sunday", desc: "Rest and Recover", tasks: []}, // Sunday
+            { day: 1, title: "Monday", desc: "Start Strong", tasks: [
+                { id: 't1', label: 'Post on X', target: 1, stat: 'Intellect', xp: 300 },
                 { id: 't2', label: 'Publish Short', target: 1, stat: 'Creativity', xp: 200 }
             ]},
-            { day: 1, title: "Tuesday", desc: "Deep Work", tasks: [
+            { day: 2, title: "Tuesday", desc: "Deep Work", tasks: [
                 { id: 't1', label: 'Post on X', target: 1, stat: 'Intellect', xp: 300 },
             ]},
-            { day: 2, title: "Wednesday", desc: "Mid-week Push", tasks: [
+            { day: 3, title: "Wednesday", desc: "Mid-week Push", tasks: [
                 { id: 't1', label: 'Post on X', target: 1, stat: 'Intellect', xp: 300 },
-                { id: 't2', label: 'Publish Short', target: 1, stat: 'Creativity', xp: 200 }            ]
-            },
-            { day: 3, title: "Thursday", desc: "Keep Going", tasks: [
+                { id: 't2', label: 'Publish Short', target: 1, stat: 'Creativity', xp: 200 }
+            ]},
+            { day: 4, title: "Thursday", desc: "Keep Going", tasks: [
                 { id: 't1', label: 'Post on X', target: 1, stat: 'Intellect', xp: 300 },
             ]},
-            { day: 4, title: "Friday", desc: "Finish Strong", tasks: [
+            { day: 5, title: "Friday", desc: "Finish Strong", tasks: [
                 { id: 't1', label: 'Post on X', target: 1, stat: 'Intellect', xp: 300 },
                 { id: 't2', label: 'Publish Short', target: 1, stat: 'Creativity', xp: 200 },
                 { id: 't3', label: 'Tracker', target: 1, stat: 'WorkEthic', xp: 250 }
             ]},
-            { day: 5, title: "Saturday", desc: "Rest and Recover", tasks: []},
-             { day: 6, title: "Sunday", desc: "Rest and Recover", tasks: []},
+            { day: 6, title: "Saturday", desc: "Rest and Recover", tasks: []},
         ];
 
         const INITIAL_LOG = {
             date: getLocalDate(),
-            // Grind List
             replyGuy: 0,
             icpComments: 0,
             hvInteractions: 0,
             outboundDMs: 0,
-            // Vitality
             cardioMinutes: 0,
             stretchingMinutes: 0, 
-            // Boss (Now dynamic)
-            bossTasks: [], // Array of { label, target, value, stat, xp }
-            xp: 0,
+            bossTasks: [], 
+            ytShorts: 0, 
         };
 
         const TARGETS = {
@@ -178,45 +174,47 @@
             stretchingMinutes: 15, 
         };
 
-        const XP_VALUES = {
-            replyGuy: 15,
-            icpComments: 60,
-            hvInteractions: 75,
-            outboundDMs: 100,
-            cardioMinutes: 10,
-            stretchingMinutes: 10, 
-            perfectDay: 500
-        };
-
         // --- Retro Components ---
 
-        const PixelCard = ({ children, color = "border-black", bgColor = "bg-rpg-panel", title, className = "" }) => (
+        const PixelCard = ({ children, color = "border-black", bgColor = "bg-rpg-panel", title, className = "", isLocked = false }) => (
             <div className={`relative border-4 ${color} ${bgColor} shadow-pixel p-4 mb-6 ${className}`}>
                 {title && (
                     <div className={`absolute -top-4 left-4 ${color.replace('border', 'bg')} text-white px-2 py-1 font-pixel text-[10px] uppercase tracking-widest shadow-pixel-sm`}>
                         {title}
                     </div>
                 )}
-                {children}
+                {isLocked && (
+                    <div className="absolute -top-4 right-4 bg-gray-600 text-white px-2 py-1 font-pixel text-[10px] uppercase tracking-widest shadow-pixel-sm flex items-center gap-1">
+                        <Lock className="w-3 h-3" /> LOCKED
+                    </div>
+                )}
+                <div className={isLocked ? "opacity-75 pointer-events-none grayscale" : ""}>
+                    {children}
+                </div>
             </div>
         );
 
-        const PixelButton = ({ onClick, children, variant = "primary", className = "", fullWidth = false }) => {
+        const PixelButton = ({ onClick, children, variant = "primary", className = "", fullWidth = false, disabled = false }) => {
             const variants = {
                 primary: "bg-rpg-blue hover:bg-blue-600 text-white border-black",
                 danger: "bg-rpg-red hover:bg-red-600 text-white border-black",
                 success: "bg-rpg-green hover:bg-green-600 text-white border-black",
                 warning: "bg-rpg-yellow hover:bg-yellow-400 text-black border-black",
-                neutral: "bg-white hover:bg-gray-100 text-black border-black"
+                neutral: "bg-white hover:bg-gray-100 text-black border-black",
+                disabled: "bg-gray-400 text-gray-200 border-gray-600 cursor-not-allowed"
             };
+
+            const activeVariant = disabled ? variants.disabled : variants[variant];
 
             return (
                 <button 
-                    onClick={onClick}
+                    onClick={!disabled ? onClick : undefined}
+                    disabled={disabled}
                     className={`
-                        ${variants[variant]} 
-                        border-2 border-black 
-                        shadow-pixel-sm active:translate-y-1 active:shadow-none transition-all
+                        ${activeVariant} 
+                        border-2 
+                        ${!disabled ? 'shadow-pixel-sm active:translate-y-1 active:shadow-none' : ''} 
+                        transition-all
                         font-pixel text-[10px] py-3 px-4 uppercase
                         ${fullWidth ? 'w-full flex justify-center items-center' : ''}
                         ${className}
@@ -251,9 +249,6 @@
                                         <span className="opacity-50 mr-2">[{entry.time}]</span>
                                         {entry.msg}
                                     </span>
-                                    <span className={entry.xp > 0 ? "text-yellow-400" : "text-red-400"}>
-                                        {entry.xp > 0 ? '+' : ''}{entry.xp}XP
-                                    </span>
                                 </div>
                             ))}
                             {logs.length > 0 && (
@@ -270,75 +265,6 @@
             );
         };
 
-        const SvgRadarChart = ({ stats }) => {
-            const size = 220;
-            const center = size / 2;
-            const radius = 80;
-            const labels = ["CHAR", "INT", "VIT", "CRE", "WORK"];
-            const keys = ["Charisma", "Intellect", "Fitness", "Creativity", "WorkEthic"];
-
-            const getCoordinates = (value, index, total) => {
-                const angle = (Math.PI * 2 * index) / total - Math.PI / 2;
-                const r = (value / 100) * radius;
-                return `${center + r * Math.cos(angle)},${center + r * Math.sin(angle)}`;
-            };
-
-            const points = keys.map((key, i) => getCoordinates(stats[key], i, 5)).join(' ');
-            const bgPoints = keys.map((_, i) => getCoordinates(100, i, 5)).join(' ');
-            
-            const labelCoords = keys.map((_, i) => {
-                const angle = (Math.PI * 2 * i) / 5 - Math.PI / 2;
-                const r = radius + 25;
-                return {
-                    x: center + r * Math.cos(angle),
-                    y: center + r * Math.sin(angle)
-                };
-            });
-
-            return (
-                <svg width="100%" height="250" viewBox={`0 0 ${size} ${size}`} className="font-pixel text-[8px]">
-                    <polygon points={bgPoints} fill="#1a1a1a" stroke="#4a4a4a" strokeWidth="2" />
-                    
-                    {[20, 40, 60, 80].map(r => (
-                        <polygon 
-                            key={r}
-                            points={keys.map((_, i) => getCoordinates(r, i, 5)).join(' ')} 
-                            fill="none" 
-                            stroke="#333" 
-                            strokeWidth="1" 
-                            strokeDasharray="2 2"
-                        />
-                    ))}
-
-                    {keys.map((_, i) => {
-                        const end = getCoordinates(100, i, 5).split(',');
-                        return <line key={i} x1={center} y1={center} x2={end[0]} y2={end[1]} stroke="#333" strokeWidth="1" />;
-                    })}
-
-                    {labelCoords.map((coord, i) => (
-                        <text 
-                            key={i} 
-                            x={coord.x} 
-                            y={coord.y} 
-                            textAnchor="middle" 
-                            dominantBaseline="middle" 
-                            fill="#fbc02d"
-                            className="font-pixel font-bold"
-                        >
-                            {labels[i]}
-                        </text>
-                    ))}
-
-                    <polygon points={points} fill="rgba(25, 118, 210, 0.6)" stroke="#42a5f5" strokeWidth="2" />
-                    
-                    {keys.map((key, i) => {
-                         const coords = getCoordinates(stats[key], i, 5).split(',');
-                         return <rect key={i} x={coords[0]-2} y={coords[1]-2} width="4" height="4" fill="#fbc02d" />
-                    })}
-                </svg>
-            );
-        };
-
         const ProgressBar = ({ current, max, color = "bg-blue-500", size = "h-4" }) => {
             const percent = Math.min(100, (current / max) * 100);
             return (
@@ -352,13 +278,13 @@
             );
         };
 
-        const NumberInput = ({ label, value, onChange, target, icon: Icon, step = 1 }) => {
+        const NumberInput = ({ label, value, onChange, target, icon: Icon, step = 1, disabled = false }) => {
             const isComplete = value >= target;
             return (
-                <div className={`p-2 border-2 transition-all duration-300 ${isComplete ? 'bg-green-100 border-rpg-green' : 'bg-white border-black'} shadow-pixel-sm mb-2`}>
+                <div className={`p-2 border-2 transition-all duration-300 ${isComplete ? 'bg-green-100 border-rpg-green' : 'bg-white border-black'} shadow-pixel-sm mb-2 ${disabled ? 'opacity-70' : ''}`}>
                     <div className="flex justify-between items-center mb-2">
                         <div className="flex items-center space-x-2">
-                            <div className={`p-1 border-2 border-black ${isComplete ? 'bg-rpg-green text-white' : 'bg-rpg-blue text-white'}`}>
+                            <div className={`p-1 border-2 border-black ${isComplete ? 'bg-rpg-green text-white' : 'bg-rpg-blue text-white'} ${disabled ? 'grayscale' : ''}`}>
                                 <Icon className="w-4 h-4" strokeWidth={2.5} />
                             </div>
                             <span className="font-pixel text-[10px] text-black uppercase">{label}</span>
@@ -370,8 +296,8 @@
                     </div>
                     <ProgressBar current={value} max={target} color={isComplete ? "bg-rpg-green" : "bg-rpg-blue"} />
                     <div className="flex space-x-2 mt-3 font-pixel text-[12px]">
-                        <button onClick={() => onChange(Math.max(0, value - step))} className="w-8 h-8 flex items-center justify-center bg-gray-200 border-2 border-black hover:bg-gray-300 active:translate-y-1 active:shadow-none shadow-pixel-sm text-black">-</button>
-                        <button onClick={() => onChange(value + step)} className={`flex-1 h-8 flex items-center justify-center border-2 border-black active:translate-y-1 active:shadow-none shadow-pixel-sm text-white uppercase ${isComplete ? 'bg-rpg-green hover:bg-green-600' : 'bg-rpg-blue hover:bg-blue-600'}`}>+ LOG</button>
+                        <button disabled={disabled} onClick={() => onChange(Math.max(0, value - step))} className={`w-8 h-8 flex items-center justify-center border-2 border-black active:translate-y-1 active:shadow-none shadow-pixel-sm ${disabled ? 'bg-gray-400 text-gray-600 cursor-not-allowed' : 'bg-gray-200 hover:bg-gray-300 text-black'}`}>-</button>
+                        <button disabled={disabled} onClick={() => onChange(value + step)} className={`flex-1 h-8 flex items-center justify-center border-2 border-black active:translate-y-1 active:shadow-none shadow-pixel-sm text-white uppercase ${disabled ? 'bg-gray-400 cursor-not-allowed' : (isComplete ? 'bg-rpg-green hover:bg-green-600' : 'bg-rpg-blue hover:bg-blue-600')}`}>+ LOG</button>
                     </div>
                 </div>
             );
@@ -381,7 +307,6 @@
             const [selectedDay, setSelectedDay] = useState(0); 
             const days = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
             
-            // Get current day's config or default
             const currentConfig = schedule.find(s => s.day === selectedDay) || { ...DEFAULT_SCHEDULE[0], day: selectedDay, tasks: [] };
 
             const handleHeaderChange = (field, value) => {
@@ -399,7 +324,7 @@
 
             const addTask = () => {
                 if (currentConfig.tasks.length >= 5) return;
-                const newTask = { id: `t${Date.now()}`, label: 'New Task', target: 1, stat: 'WorkEthic', xp: 100 };
+                const newTask = { id: `t${Date.now()}`, label: 'New Task', target: 1 };
                 handleHeaderChange('tasks', [...currentConfig.tasks, newTask]);
             };
 
@@ -413,7 +338,6 @@
                     <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose}></div>
                     <div className="absolute right-0 top-0 h-full w-full max-w-sm bg-rpg-dark border-l-4 border-white shadow-2xl overflow-y-auto">
                         <div className="p-4 space-y-6">
-                            {/* Header */}
                             <div className="flex justify-between items-center border-b-4 border-rpg-blue pb-4 mb-4">
                                 <h2 className="text-white font-pixel text-sm flex items-center gap-2">
                                     <Settings className="w-4 h-4 text-rpg-yellow"/> BOSS CONFIG
@@ -423,7 +347,6 @@
                                 </button>
                             </div>
 
-                            {/* Day Selector */}
                             <div className="grid grid-cols-7 gap-1 mb-4">
                                 {days.map((d, i) => (
                                     <button 
@@ -436,7 +359,6 @@
                                 ))}
                             </div>
 
-                            {/* Config Form */}
                             <div className="bg-rpg-panel border-4 border-black p-4 space-y-4">
                                 <div className="text-center font-pixel text-xs mb-2 text-rpg-blue underline">
                                     {days[selectedDay]} SETTINGS
@@ -445,31 +367,20 @@
                                 <input type="text" value={currentConfig.title} onChange={(e) => handleHeaderChange('title', e.target.value)} className="w-full bg-white border-2 border-black p-2 font-retro text-lg mb-2" placeholder="Title"/>
                                 <input type="text" value={currentConfig.desc} onChange={(e) => handleHeaderChange('desc', e.target.value)} className="w-full bg-white border-2 border-black p-2 font-retro text-lg mb-4" placeholder="Description"/>
 
-                                {/* Task List */}
                                 <div className="space-y-4">
                                     {currentConfig.tasks.map((task, idx) => (
                                         <div key={idx} className="bg-white p-3 border-2 border-gray-300 relative">
                                             <button onClick={() => removeTask(idx)} className="absolute top-1 right-1 text-red-500 hover:text-red-700"><Trash className="w-3 h-3"/></button>
-                                            <div className="grid grid-cols-2 gap-2 mb-2">
+                                            <div className="grid grid-cols-1 gap-2 mb-2">
                                                 <div>
                                                     <label className="font-pixel text-[6px] text-gray-500">LABEL</label>
                                                     <input type="text" value={task.label} onChange={(e) => updateTask(idx, 'label', e.target.value)} className="w-full border border-black px-1 font-retro text-sm"/>
                                                 </div>
-                                                <div>
-                                                    <label className="font-pixel text-[6px] text-gray-500">STAT TYPE</label>
-                                                    <select value={task.stat} onChange={(e) => updateTask(idx, 'stat', e.target.value)} className="w-full border border-black px-1 font-retro text-sm h-6 bg-white">
-                                                        {STAT_TYPES.map(s => <option key={s} value={s}>{s}</option>)}
-                                                    </select>
-                                                </div>
                                             </div>
-                                            <div className="grid grid-cols-2 gap-2">
+                                            <div className="grid grid-cols-1 gap-2">
                                                 <div className="flex items-center gap-2">
                                                     <label className="font-pixel text-[6px] text-gray-500">TARGET</label>
                                                     <input type="number" min="1" max="10" value={task.target} onChange={(e) => updateTask(idx, 'target', parseInt(e.target.value))} className="w-12 border border-black px-1 font-retro text-sm"/>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <label className="font-pixel text-[6px] text-gray-500">XP</label>
-                                                    <input type="number" step="50" value={task.xp} onChange={(e) => updateTask(idx, 'xp', parseInt(e.target.value))} className="w-16 border border-black px-1 font-retro text-sm"/>
                                                 </div>
                                             </div>
                                         </div>
@@ -488,6 +399,168 @@
             );
         };
 
+        const NotesPanel = ({ isOpen, onClose, currentDate }) => {
+            const [notes, setNotes] = useState([]);
+            const [newNote, setNewNote] = useState("");
+            const [isAdding, setIsAdding] = useState(false);
+            
+            // Edit states
+            const [editingId, setEditingId] = useState(null);
+            const [editContent, setEditContent] = useState("");
+
+            useEffect(() => {
+                if (isOpen) {
+                    const savedNotes = JSON.parse(localStorage.getItem(NOTES_KEY) || "[]");
+                    const dayNotes = savedNotes.filter(n => n.date === currentDate).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                    setNotes(dayNotes);
+                    setEditingId(null);
+                    setEditContent("");
+                    setIsAdding(false);
+                }
+            }, [isOpen, currentDate]);
+
+            const handleSaveNote = () => {
+                if (!newNote.trim()) return;
+                
+                const noteObj = {
+                    id: Date.now(),
+                    date: currentDate,
+                    content: newNote,
+                    timestamp: new Date().toISOString()
+                };
+
+                const allNotes = JSON.parse(localStorage.getItem(NOTES_KEY) || "[]");
+                const updatedNotes = [...allNotes, noteObj];
+                
+                localStorage.setItem(NOTES_KEY, JSON.stringify(updatedNotes));
+                setNotes(prev => [noteObj, ...prev]);
+                setNewNote("");
+                setIsAdding(false);
+            };
+
+            const handleDelete = (id) => {
+                if(!confirm("Delete this note?")) return;
+                const allNotes = JSON.parse(localStorage.getItem(NOTES_KEY) || "[]");
+                const updatedNotes = allNotes.filter(n => n.id !== id);
+                localStorage.setItem(NOTES_KEY, JSON.stringify(updatedNotes));
+                setNotes(prev => prev.filter(n => n.id !== id));
+            };
+
+            const startEditing = (note) => {
+                setEditingId(note.id);
+                setEditContent(note.content);
+                setIsAdding(false); 
+            };
+
+            const saveEdit = () => {
+                if (!editContent.trim()) return;
+
+                const allNotes = JSON.parse(localStorage.getItem(NOTES_KEY) || "[]");
+                const updatedNotes = allNotes.map(n => 
+                    n.id === editingId ? { ...n, content: editContent } : n
+                );
+
+                localStorage.setItem(NOTES_KEY, JSON.stringify(updatedNotes));
+                
+                setNotes(prev => prev.map(n => 
+                    n.id === editingId ? { ...n, content: editContent } : n
+                ));
+
+                setEditingId(null);
+                setEditContent("");
+            };
+
+            return (
+                <div className={`fixed inset-0 z-50 transform transition-transform duration-300 ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+                    <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose}></div>
+                    <div className="absolute right-0 top-0 h-full w-full max-w-sm bg-rpg-panel border-l-4 border-black shadow-2xl overflow-y-auto flex flex-col">
+                        
+                        {/* Header */}
+                        <div className="p-4 bg-rpg-yellow border-b-4 border-black flex justify-between items-center sticky top-0 z-10">
+                            <h2 className="text-black font-pixel text-xs flex items-center gap-2">
+                                <Notebook className="w-4 h-4"/> QUICK NOTES
+                            </h2>
+                            <button onClick={onClose} className="text-black hover:text-red-600">
+                                <X className="w-6 h-6" />
+                            </button>
+                        </div>
+
+                        {/* Content Area */}
+                        <div className="flex-1 p-4 overflow-y-auto space-y-4">
+                            {!isAdding && !editingId && (
+                                <button 
+                                    onClick={() => setIsAdding(true)}
+                                    className="w-full border-2 border-dashed border-gray-400 p-3 font-pixel text-[10px] text-gray-500 hover:bg-white hover:border-black hover:text-black transition-all flex items-center justify-center gap-2"
+                                >
+                                    <Plus className="w-4 h-4"/> ADD NEW NOTE
+                                </button>
+                            )}
+
+                            {isAdding && (
+                                <div className="bg-white border-2 border-black p-3 shadow-pixel-sm animate-in fade-in zoom-in-95 duration-200">
+                                    <textarea 
+                                        autoFocus
+                                        value={newNote}
+                                        onChange={(e) => setNewNote(e.target.value)}
+                                        className="w-full h-32 font-retro text-lg resize-none outline-none bg-transparent p-1"
+                                        placeholder="Write your thoughts..."
+                                    />
+                                    <div className="flex justify-end gap-2 mt-2 pt-2 border-t border-gray-200">
+                                        <button onClick={() => setIsAdding(false)} className="font-pixel text-[8px] text-gray-500 hover:text-black px-2">CANCEL</button>
+                                        <button onClick={handleSaveNote} className="bg-black text-white font-pixel text-[8px] px-3 py-1 hover:bg-gray-800">SAVE NOTE</button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {notes.length === 0 && !isAdding && (
+                                <div className="text-center font-retro text-gray-400 mt-10">
+                                    No notes for {currentDate}...
+                                </div>
+                            )}
+
+                            {notes.map(note => (
+                                <div key={note.id} className="bg-yellow-50 border-2 border-black p-3 relative group">
+                                    {editingId === note.id ? (
+                                        // Edit Mode
+                                        <div className="animate-in fade-in duration-200">
+                                            <textarea 
+                                                autoFocus
+                                                value={editContent}
+                                                onChange={(e) => setEditContent(e.target.value)}
+                                                className="w-full h-24 font-retro text-lg resize-none outline-none bg-white border border-gray-300 p-1 mb-2"
+                                            />
+                                            <div className="flex justify-end gap-2">
+                                                <button onClick={() => setEditingId(null)} className="font-pixel text-[8px] text-gray-500 hover:text-black px-2">CANCEL</button>
+                                                <button onClick={saveEdit} className="bg-rpg-blue text-white font-pixel text-[8px] px-3 py-1 border border-black hover:bg-blue-600">UPDATE</button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        // Display Mode
+                                        <>
+                                            <div className="text-[10px] font-pixel text-gray-400 mb-1 flex justify-between items-center">
+                                                <span>{new Date(note.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                                                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <button onClick={() => startEditing(note)} className="text-blue-400 hover:text-blue-600" title="Edit">
+                                                        <Edit3 className="w-3 h-3"/>
+                                                    </button>
+                                                    <button onClick={() => handleDelete(note.id)} className="text-red-300 hover:text-red-600" title="Delete">
+                                                        <Trash className="w-3 h-3"/>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div className="font-retro text-lg whitespace-pre-wrap leading-tight text-gray-800">
+                                                {note.content}
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
         // --- Main App ---
         function DailyQuestTracker() {
             const [activeTab, setActiveTab] = useState('quest');
@@ -497,6 +570,7 @@
             const [actionHistory, setActionHistory] = useState([]);
             const [bossSchedule, setBossSchedule] = useState(DEFAULT_SCHEDULE);
             const [isScheduleOpen, setIsScheduleOpen] = useState(false);
+            const [isNotesOpen, setIsNotesOpen] = useState(false); 
             const fileInputRef = useRef(null);
 
             // Load Data
@@ -506,17 +580,18 @@
                     if (saved) {
                         const parsedHistory = JSON.parse(saved);
                         setHistory(parsedHistory);
-                        // Init log with current date
                         const todayEntry = parsedHistory.find(h => h.date === currentDate);
                         if (todayEntry) {
-                            // Ensure structure compatibility
                             if (!todayEntry.bossTasks) todayEntry.bossTasks = [];
                             setLog(todayEntry);
                         } else {
-                            // New day? Get tasks from schedule
                             initializeDay(currentDate, JSON.parse(localStorage.getItem(SCHEDULE_KEY) || JSON.stringify(DEFAULT_SCHEDULE)));
                         }
+                    } else {
+                        // New user initialization
+                        initializeDay(currentDate, DEFAULT_SCHEDULE);
                     }
+                    
                     const savedActions = localStorage.getItem(ACTION_KEY);
                     if (savedActions) setActionHistory(JSON.parse(savedActions));
                     
@@ -525,42 +600,31 @@
                 } catch (e) { console.error("Load failed", e); }
             }, []);
 
-            // When schedule changes, try to update TODAY if it exists, or just state
-            const updateSchedule = (newSchedule) => {
-                setBossSchedule(newSchedule);
-                localStorage.setItem(SCHEDULE_KEY, JSON.stringify(newSchedule));
-                
-                // Live update if looking at today
-                if (log.date === getLocalDate()) {
-                    initializeDay(log.date, newSchedule, true); 
-                }
-            };
-
             // Helper to set up a day's log based on schedule
             const initializeDay = (dateStr, scheduleData, preserveValues = false) => {
                 const dayIndex = new Date(dateStr).getDay();
                 const config = scheduleData.find(s => s.day === dayIndex) || DEFAULT_SCHEDULE[0];
                 
-                // Map config tasks to log structure
-                // If preserving (editing schedule mid-day), try to keep 'value'
                 const newBossTasks = config.tasks.map(t => {
                     const existing = preserveValues ? log.bossTasks?.find(bt => bt.id === t.id || bt.label === t.label) : null;
-                    return {
-                        ...t,
-                        value: existing ? existing.value : 0 // Keep progress if exists
-                    };
+                    return { ...t, value: existing ? existing.value : 0 };
                 });
 
-                const newLog = {
-                    ...INITIAL_LOG,
-                    ...log, // Keep other props
-                    date: dateStr,
-                    bossTasks: newBossTasks
-                };
-                setLog(newLog);
+                if (preserveValues) {
+                    setLog(prev => ({ ...prev, bossTasks: newBossTasks }));
+                } else {
+                    setLog({ ...INITIAL_LOG, date: dateStr, bossTasks: newBossTasks });
+                }
             };
 
-            // Sync Log on Date Change
+            const updateSchedule = (newSchedule) => {
+                setBossSchedule(newSchedule);
+                localStorage.setItem(SCHEDULE_KEY, JSON.stringify(newSchedule));
+                if (log.date === getLocalDate()) {
+                    initializeDay(log.date, newSchedule, true); 
+                }
+            };
+
             useEffect(() => {
                 const entry = history.find(h => h.date === currentDate);
                 if (entry) {
@@ -570,63 +634,48 @@
                 }
             }, [currentDate]);
 
+            // Save logic - Critical for streak sync
             const saveToLocal = (newLog) => {
                 const otherEntries = history.filter(h => h.date !== newLog.date);
+                // We must ensure the current log is part of history for streak calcs
                 const newHistory = [...otherEntries, newLog].sort((a, b) => b.date.localeCompare(a.date));
                 setHistory(newHistory);
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(newHistory));
             };
 
-            // Unified Update Handler
+            // Deep Clone update to ensure React sees state changes in nested arrays
             const handleUpdate = (field, val, taskIndex = null) => {
                 let diff = 0;
                 let taskLabel = "";
-                let xpChange = 0;
                 
+                // DEEP CLONE logic
                 const updatedLog = { ...log };
+                if (log.bossTasks) {
+                    updatedLog.bossTasks = log.bossTasks.map(t => ({...t}));
+                }
 
                 if (field === 'bossTask') {
-                    // Updating a specific dynamic task
                     const task = updatedLog.bossTasks[taskIndex];
                     const oldVal = task.value;
                     diff = val - oldVal;
                     task.value = val;
                     taskLabel = task.label;
-                    xpChange = diff * (task.xp || 0);
                 } else {
-                    // Updating static fields
                     const oldVal = log[field] || 0;
                     diff = val - oldVal;
                     updatedLog[field] = val;
                     taskLabel = field;
-                    xpChange = diff * (XP_VALUES[field] || 0);
                 }
 
                 if (diff !== 0) {
                     const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                     const msg = `${taskLabel}: ${diff > 0 ? '+' : ''}${diff}`;
-                    const newLogEntry = { time: timestamp, msg: msg, xp: xpChange };
+                    const newLogEntry = { time: timestamp, msg: msg };
                     const updatedActionLog = [newLogEntry, ...actionHistory].slice(0, 50);
                     setActionHistory(updatedActionLog);
                     localStorage.setItem(ACTION_KEY, JSON.stringify(updatedActionLog));
                 }
 
-                // Recalculate Total XP
-                let newXp = (updatedLog.replyGuy * XP_VALUES.replyGuy) +
-                            (updatedLog.icpComments * XP_VALUES.icpComments) +
-                            (updatedLog.hvInteractions * XP_VALUES.hvInteractions) +
-                            (updatedLog.outboundDMs * XP_VALUES.outboundDMs) +
-                            (updatedLog.cardioMinutes * XP_VALUES.cardioMinutes) +
-                            ((updatedLog.stretchingMinutes || 0) * XP_VALUES.stretchingMinutes);
-                
-                // Add Dynamic Boss XP
-                if (updatedLog.bossTasks) {
-                    updatedLog.bossTasks.forEach(t => {
-                        newXp += (t.value * (t.xp || 0));
-                    });
-                }
-
-                updatedLog.xp = newXp;
                 setLog(updatedLog);
                 saveToLocal(updatedLog);
             };
@@ -636,35 +685,143 @@
                 localStorage.removeItem(ACTION_KEY);
             };
 
-            // Dynamic CSV Export
-            const handleExport = () => {
-                // Base headers
-                let csv = "Date,Total XP,Reply Guy,ICP Comments,HV Interact,Outbound DMs,Cardio,Stretching";
-                
-                // Find max number of boss tasks in history to create enough columns
-                const maxTasks = history.reduce((max, h) => Math.max(max, (h.bossTasks?.length || 0)), 0);
-                for(let i=0; i<maxTasks; i++) {
-                    csv += `,Task ${i+1} Label,Task ${i+1} Value,Task ${i+1} XP`;
-                }
-                csv += "\n";
-
-                history.forEach(h => {
-                    let row = `${h.date},${h.xp},${h.replyGuy},${h.icpComments},${h.hvInteractions},${h.outboundDMs},${h.cardioMinutes},${h.stretchingMinutes}`;
+            const checkCategoryCompletion = (logData, category) => {
+                if (category === 'fitness') {
+                    const cardioDone = (logData.cardioMinutes || 0) >= TARGETS.cardioMinutes;
+                    // Legacy Check: If 'stretchingMinutes' is missing (old data), assume done. 
+                    const hasStretchRecord = 'stretchingMinutes' in logData;
+                    const stretchDone = hasStretchRecord ? (logData.stretchingMinutes >= TARGETS.stretchingMinutes) : true;
                     
-                    // Add dynamic tasks
+                    return cardioDone && stretchDone;
+                }
+                
+                if (category === 'omni') { // Work Streak
+                    // 1. Check Grind List
+                    const basicsMet = (logData.replyGuy || 0) >= TARGETS.replyGuy && 
+                                    (logData.icpComments || 0) >= TARGETS.icpComments && 
+                                    (logData.hvInteractions || 0) >= TARGETS.hvInteractions && 
+                                    (logData.outboundDMs || 0) >= TARGETS.outboundDMs;
+                    
+                    if (!basicsMet) return false;
+
+                    // 2. Check Boss Tasks
+                    if (!logData.bossTasks || logData.bossTasks.length === 0) return true;
+                    
+                    // Exclude any task with 'short' in name from Work Streak requirement
+                    const relevantTasks = logData.bossTasks.filter(t => !t.label.toLowerCase().includes('short'));
+                    const bossMet = relevantTasks.every(t => t.value >= t.target);
+                    
+                    return bossMet;
+                }
+                return false;
+            };
+
+            // MODIFIED CALCULATE STREAK TO USE ACTIVE LOG IF DATE MATCHES
+            const calculateStreak = (category) => {
+                const sorted = [...history].sort((a, b) => new Date(b.date) - new Date(a.date));
+                let currentStreak = 0;
+                let checkDate = new Date(); // Start from today
+                const todayStr = getLocalDate();
+
+                for (let i = 0; i < 365; i++) {
+                    const offset = checkDate.getTimezoneOffset() * 60000;
+                    const dateStr = new Date(checkDate.getTime() - offset).toISOString().split('T')[0];
+                    
+                    // CRITICAL FIX: If checking "today" (or whatever date matches current log), use state directly!
+                    let entry;
+                    if (log.date === dateStr) {
+                        entry = log;
+                    } else {
+                        entry = sorted.find(h => h.date === dateStr);
+                    }
+                    
+                    let isDone = false;
+                    
+                    if (entry) {
+                        isDone = checkCategoryCompletion(entry, category);
+                    } else {
+                        if (dateStr === todayStr) {
+                            checkDate.setDate(checkDate.getDate() - 1);
+                            continue;
+                        }
+                        break; 
+                    }
+
+                    if (isDone) {
+                        currentStreak++;
+                        checkDate.setDate(checkDate.getDate() - 1);
+                    } else {
+                        if (dateStr === todayStr) {
+                            checkDate.setDate(checkDate.getDate() - 1);
+                            continue;
+                        }
+                        break;
+                    }
+                }
+                return currentStreak;
+            };
+
+            const totalYT = useMemo(() => history.reduce((acc, curr) => {
+                let count = curr.ytShorts || 0; 
+                // Sum up legacy shorts from boss tasks
+                if (curr.bossTasks) {
+                    curr.bossTasks.forEach(t => {
+                        if (t.label.toLowerCase().includes('short')) count += t.value;
+                    });
+                }
+                return acc + count;
+            }, 0), [history]);
+
+            const streaks = useMemo(() => ({
+                omni: calculateStreak('omni'),
+                fitness: calculateStreak('fitness')
+            }), [history, log]); 
+
+            const handleExport = () => {
+                // Get Notes
+                const allNotes = JSON.parse(localStorage.getItem(NOTES_KEY) || "[]");
+
+                let csv = "Date,Reply Guy,ICP Comments,HV Interact,Outbound DMs,Cardio,Stretching,Videos";
+                
+                // Merge current log if not in history yet
+                let exportHistory = [...history];
+                if (!exportHistory.find(h => h.date === log.date)) {
+                    exportHistory.push(log);
+                }
+                exportHistory.sort((a, b) => b.date.localeCompare(a.date));
+
+                const maxTasks = exportHistory.reduce((max, h) => Math.max(max, (h.bossTasks?.length || 0)), 0);
+                for(let i=0; i<maxTasks; i++) {
+                    csv += `,Task ${i+1} Label,Task ${i+1} Value`;
+                }
+                csv += ",Notes\n";
+
+                exportHistory.forEach(h => {
+                    let row = `${h.date},${h.replyGuy},${h.icpComments},${h.hvInteractions},${h.outboundDMs},${h.cardioMinutes},${h.stretchingMinutes},${h.ytShorts || 0}`;
                     const tasks = h.bossTasks || [];
                     for(let i=0; i<maxTasks; i++) {
                         if (tasks[i]) {
-                            row += `,${tasks[i].label},${tasks[i].value},${tasks[i].xp}`;
+                            row += `,${tasks[i].label},${tasks[i].value}`;
                         } else {
-                            row += ",,,"; // Empty columns if this day had fewer tasks
+                            row += ",,"; 
                         }
                     }
+                    
+                    // Append Notes
+                    const dayNotes = allNotes
+                        .filter(n => n.date === h.date)
+                        .map(n => n.content.replace(/(\r\n|\n|\r)/gm, " | ").replace(/"/g, '""'));
+                    
+                    const notesStr = dayNotes.length > 0 ? `"${dayNotes.join(' || ')}"` : "";
+                    row += `,${notesStr}`;
+
                     csv += row + "\n";
                 });
 
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
                 const link = document.createElement("a");
-                link.setAttribute("href", encodeURI("data:text/csv;charset=utf-8," + csv));
+                const url = URL.createObjectURL(blob);
+                link.setAttribute("href", url);
                 link.setAttribute("download", `quest_log_backup_${getLocalDate()}.csv`);
                 document.body.appendChild(link);
                 link.click();
@@ -678,8 +835,6 @@
                 reader.onload = (event) => {
                     try {
                         const text = event.target.result;
-                        // Basic import logic - strictly replaces history if valid JSON or parses CSV (simplified for now to JSON restore as CSV is complex with dynamic columns)
-                        // For reliability with the new dynamic structure, let's just alert
                         alert("Import for new dynamic structure is complex. Please rely on local storage or implement advanced JSON import.");
                     } catch (err) { alert("Error: " + err.message); }
                 };
@@ -687,55 +842,12 @@
                 e.target.value = ''; 
             };
 
-            // Stats Logic Updated for Dynamic Tasks
-            const skillStats = useMemo(() => {
-                const stats = { Charisma: 0, Intellect: 0, Fitness: 0, Creativity: 0, WorkEthic: 0 };
-                history.forEach(day => {
-                    // Base grind
-                    stats.Charisma += (day.replyGuy * 10) + (day.icpComments * 20) + (day.hvInteractions * 30) + (day.outboundDMs * 40);
-                    stats.Fitness += (day.cardioMinutes * 5) + ((day.stretchingMinutes || 0) * 5);
-                    
-                    // Dynamic Boss Tasks Mapping
-                    if (day.bossTasks) {
-                        day.bossTasks.forEach(t => {
-                            if (t.value > 0) {
-                                // Add XP * multiplier to stat, or just flat value? Let's assume 1 task point = relevant stat points
-                                // Or use the XP value as a proxy for effort
-                                const statName = t.stat || 'WorkEthic';
-                                if (stats[statName] !== undefined) {
-                                    stats[statName] += (t.value * 100); // 1 task = 100 stat points roughly
-                                }
-                            }
-                        });
-                    }
-                });
-                return stats;
-            }, [history]);
-
-            const totalYT = useMemo(() => history.reduce((acc, curr) => {
-                let count = curr.ytShorts || 0; // Legacy
-                if (curr.bossTasks) {
-                    curr.bossTasks.forEach(t => {
-                        if (t.label.toLowerCase().includes('short')) count += t.value;
-                    });
-                }
-                return acc + count;
-            }, 0), [history]);
-
-            const streaks = useMemo(() => {
-                if (history.length === 0) return { omni: 0, fitness: 0 };
-                // Simplified streak logic for demo
-                // A day is "perfect" if all boss tasks for that day are met
-                return { omni: history.length, fitness: history.filter(h => h.cardioMinutes > 0).length };
-            }, [history]);
-
-            const userLevel = Math.floor(log.xp / 3000) + 1; // Live XP
-
             // --- Renderers ---
 
             const renderQuestLog = () => {
-                // Get config for Title/Desc only (tasks come from Log now to preserve history)
                 const dayConfig = bossSchedule.find(s => s.day === new Date(currentDate).getDay()) || DEFAULT_SCHEDULE[0];
+                // Determine lock state
+                const isToday = currentDate === getLocalDate();
 
                 return (
                     <div className="space-y-6 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -767,22 +879,39 @@
                                 <div className="font-pixel text-[8px] text-white mb-1">Health</div>
                                 <div className="font-retro text-2xl text-white font-bold">{streaks.fitness} <span className="text-sm">Days</span></div>
                             </div>
-                            <div className="bg-rpg-yellow border-2 border-black p-2 text-center shadow-pixel-sm">
-                                <div className="font-pixel text-[8px] text-black mb-1">Passion</div>
-                                <div className="font-retro text-black text-2xl font-bold">{totalYT} <span className="text-sm">Vids</span></div>
+                            {/* VIDEO BANK - INTERACTIVE */}
+                            <div className="bg-rpg-yellow border-2 border-black p-1 text-center shadow-pixel-sm flex flex-col justify-center">
+                                <div className="font-pixel text-[8px] text-black mb-1">VIDEO BANK</div>
+                                <div className="flex items-center justify-center gap-1">
+                                    <button 
+                                        disabled={!isToday}
+                                        onClick={() => handleUpdate('ytShorts', Math.max(0, (log.ytShorts || 0) - 1))}
+                                        className={`w-6 h-6 bg-black text-white font-retro text-lg flex items-center justify-center hover:bg-gray-800 active:scale-95 ${!isToday ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    >
+                                        -
+                                    </button>
+                                    <div className="font-retro text-black text-2xl font-bold w-8">{totalYT}</div>
+                                    <button 
+                                        disabled={!isToday}
+                                        onClick={() => handleUpdate('ytShorts', (log.ytShorts || 0) + 1)}
+                                        className={`w-6 h-6 bg-black text-white font-retro text-lg flex items-center justify-center hover:bg-gray-800 active:scale-95 ${!isToday ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    >
+                                        +
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
                         {/* Vitality Section */}
-                        <PixelCard title="Vitality" color="border-rpg-green" bgColor="bg-green-50">
+                        <PixelCard title="Vitality" color="border-rpg-green" bgColor="bg-green-50" isLocked={!isToday}>
                             <div className="mt-2">
-                                <NumberInput label="Cardio (Mins)" value={log.cardioMinutes} target={TARGETS.cardioMinutes} step={5} onChange={(v) => handleUpdate('cardioMinutes', v)} icon={Heart}/>
-                                <NumberInput label="Stretching (Mins)" value={log.stretchingMinutes || 0} target={TARGETS.stretchingMinutes} step={5} onChange={(v) => handleUpdate('stretchingMinutes', v)} icon={Activity}/>
+                                <NumberInput disabled={!isToday} label="Cardio (Mins)" value={log.cardioMinutes} target={TARGETS.cardioMinutes} step={5} onChange={(v) => handleUpdate('cardioMinutes', v)} icon={Heart}/>
+                                <NumberInput disabled={!isToday} label="Stretching (Mins)" value={log.stretchingMinutes || 0} target={TARGETS.stretchingMinutes} step={5} onChange={(v) => handleUpdate('stretchingMinutes', v)} icon={Activity}/>
                             </div>
                         </PixelCard>
 
                         {/* Boss Section (Dynamic) */}
-                        <PixelCard title={dayConfig.title} color="border-rpg-red" bgColor="bg-red-50">
+                        <PixelCard title="DAILY BOSS FIGHT" color="border-rpg-red" bgColor="bg-red-50" isLocked={!isToday}>
                             <div className="absolute top-2 right-2">
                                 <button onClick={() => setIsScheduleOpen(true)} className="text-red-900/50 hover:text-red-600">
                                     <Edit3 className="w-4 h-4"/>
@@ -796,6 +925,7 @@
                                         <PixelButton 
                                             key={task.id || idx} 
                                             fullWidth 
+                                            disabled={!isToday}
                                             onClick={() => handleUpdate('bossTask', (task.value >= task.target ? 0 : task.value + 1), idx)} 
                                             variant={task.value >= task.target ? "success" : "neutral"}
                                         >
@@ -812,12 +942,12 @@
                         </PixelCard>
 
                         {/* Grind List Section */}
-                        <PixelCard title="Grind List" color="border-rpg-yellow" bgColor="bg-yellow-50">
+                        <PixelCard title="Grind List" color="border-rpg-yellow" bgColor="bg-yellow-50" isLocked={!isToday}>
                             <div className="mt-2">
-                                <NumberInput label="Reply Guy" value={log.replyGuy} target={TARGETS.replyGuy} onChange={(v) => handleUpdate('replyGuy', v)} icon={MessageSquare}/>
-                                <NumberInput label="ICP Comments" value={log.icpComments} target={TARGETS.icpComments} onChange={(v) => handleUpdate('icpComments', v)} icon={Target}/>
-                                <NumberInput label="HV Interact" value={log.hvInteractions} target={TARGETS.hvInteractions} onChange={(v) => handleUpdate('hvInteractions', v)} icon={Share2}/>
-                                <NumberInput label="Outbound DMs" value={log.outboundDMs} target={TARGETS.outboundDMs} onChange={(v) => handleUpdate('outboundDMs', v)} icon={Send}/>
+                                <NumberInput disabled={!isToday} label="Reply Guy" value={log.replyGuy} target={TARGETS.replyGuy} onChange={(v) => handleUpdate('replyGuy', v)} icon={MessageSquare}/>
+                                <NumberInput disabled={!isToday} label="ICP Comments" value={log.icpComments} target={TARGETS.icpComments} onChange={(v) => handleUpdate('icpComments', v)} icon={Target}/>
+                                <NumberInput disabled={!isToday} label="HV Interact" value={log.hvInteractions} target={TARGETS.hvInteractions} onChange={(v) => handleUpdate('hvInteractions', v)} icon={Share2}/>
+                                <NumberInput disabled={!isToday} label="Outbound DMs" value={log.outboundDMs} target={TARGETS.outboundDMs} onChange={(v) => handleUpdate('outboundDMs', v)} icon={Send}/>
                             </div>
                         </PixelCard>
                         
@@ -833,39 +963,66 @@
                 );
             };
 
-            const renderStats = () => {
-                // Normalize stats for chart
-                const maxStat = Math.max(100, ...Object.values(skillStats));
-                const normalizedStats = {};
-                Object.keys(skillStats).forEach(key => {
-                    normalizedStats[key] = (skillStats[key] / maxStat) * 100;
-                });
+            const renderStreaks = () => {
+                const last7Days = [];
+                for(let i=0; i<7; i++) {
+                    const d = new Date();
+                    d.setDate(d.getDate() - i);
+                    const offset = d.getTimezoneOffset() * 60000;
+                    const dateStr = new Date(d.getTime() - offset).toISOString().split('T')[0];
+                    const entry = history.find(h => h.date === dateStr);
+                    last7Days.push({ date: dateStr, entry });
+                }
 
                 return (
                     <div className="space-y-6 pb-20 animate-in fade-in slide-in-from-right-8 duration-500">
-                        <PixelCard title="Player Card" color="border-rpg-blue" bgColor="bg-rpg-dark">
-                            <div className="flex flex-col items-center text-center">
-                                <div className="w-20 h-20 bg-rpg-blue border-4 border-white mb-3 shadow-pixel flex items-center justify-center">
-                                    <User className="w-10 h-10 text-white" />
-                                </div>
-                                <h2 className="text-2xl font-pixel text-white mb-1">LVL {userLevel}</h2>
-                                <p className="text-rpg-yellow font-retro text-xl uppercase mb-4">WHAT'S THE ALTERNATIVE.</p>
-                                
-                                <div className="w-full">
-                                    <div className="flex justify-between font-pixel text-[10px] text-white mb-1">
-                                        <span>EXP</span>
-                                        <span>{log.xp}</span>
-                                    </div>
-                                    <ProgressBar current={log.xp % 3000} max={3000} color="bg-gradient-to-r from-blue-500 to-purple-500" />
-                                </div>
+                        {/* Main Streak Cards */}
+                        <PixelCard title="Work Streak" color="border-rpg-blue" bgColor="bg-rpg-dark">
+                            <div className="text-center">
+                                <div className="text-6xl font-retro text-white font-bold mb-2">{streaks.omni}</div>
+                                <div className="text-rpg-blue font-pixel text-xs uppercase">Consecutive Days</div>
                             </div>
                         </PixelCard>
 
-                        <PixelCard title="Your Stats" color="bg-rpg-dar" bgColor="bg-rpg-dark">
-                            <div className="flex justify-center p-4">
-                                <SvgRadarChart stats={normalizedStats} />
+                        <PixelCard title="Health Streak" color="border-rpg-red" bgColor="bg-rpg-dark">
+                            <div className="text-center">
+                                <div className="text-6xl font-retro text-white font-bold mb-2">{streaks.fitness}</div>
+                                <div className="text-rpg-red font-pixel text-xs uppercase">Consecutive Days</div>
                             </div>
                         </PixelCard>
+
+                        {/* 7 Day History */}
+                        <div className="bg-black border-4 border-white p-4 shadow-pixel">
+                            <h3 className="font-pixel text-white text-xs mb-4 text-center">LAST 7 DAYS</h3>
+                            <div className="space-y-2">
+                                {last7Days.map(day => {
+                                    // Use current log if it's today
+                                    let entryToUse = day.entry;
+                                    if (day.date === log.date) entryToUse = log;
+
+                                    const omniDone = entryToUse ? checkCategoryCompletion(entryToUse, 'omni') : false;
+                                    const fitDone = entryToUse ? checkCategoryCompletion(entryToUse, 'fitness') : false;
+                                    
+                                    return (
+                                        <div key={day.date} className="flex justify-between items-center border-b border-gray-800 pb-2">
+                                            <span className="font-retro text-gray-400">{day.date.slice(5)}</span>
+                                            <div className="flex gap-2">
+                                                <div className={`w-6 h-6 flex items-center justify-center border-2 border-black ${omniDone ? 'bg-rpg-blue' : 'bg-gray-800'}`}>
+                                                    {omniDone && <Check className="w-4 h-4 text-white"/>}
+                                                </div>
+                                                <div className={`w-6 h-6 flex items-center justify-center border-2 border-black ${fitDone ? 'bg-rpg-red' : 'bg-gray-800'}`}>
+                                                    {fitDone && <Check className="w-4 h-4 text-white"/>}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                            <div className="flex justify-end gap-4 mt-2 text-[8px] font-pixel text-gray-500">
+                                <span className="flex items-center gap-1"><div className="w-2 h-2 bg-rpg-blue"></div> WORK</span>
+                                <span className="flex items-center gap-1"><div className="w-2 h-2 bg-rpg-red"></div> HEALTH</span>
+                            </div>
+                        </div>
                     </div>
                 );
             };
@@ -885,28 +1042,43 @@
                         <div className="overflow-x-auto">
                             <table className="w-full text-left font-retro text-xl">
                                 <thead className="bg-rpg-blue text-white border-b-4 border-white">
-                                    <tr><th className="px-4 py-2">DATE</th><th className="px-4 py-2 text-right">XP</th></tr>
+                                    <tr><th className="px-4 py-2">DATE</th><th className="px-4 py-2 text-right">STATUS</th></tr>
                                 </thead>
                                 <tbody>
-                                    {history.map((h) => (
-                                        <tr key={h.date} className="border-b border-gray-800 text-white hover:bg-gray-900">
-                                            <td className="px-4 py-2">{h.date}</td>
-                                            <td className="px-4 py-2 text-right text-rpg-yellow">{h.xp}</td>
-                                        </tr>
-                                    ))}
+                                    {history.map((h) => {
+                                        const done = checkCategoryCompletion(h, 'omni') && checkCategoryCompletion(h, 'fitness');
+                                        return (
+                                            <tr key={h.date} className="border-b border-gray-800 text-white hover:bg-gray-900">
+                                                <td className="px-4 py-2">{h.date}</td>
+                                                <td className={`px-4 py-2 text-right ${done ? 'text-green-400' : 'text-gray-500'}`}>
+                                                    {done ? "PERFECT" : "Active"}
+                                                </td>
+                                            </tr>
+                                        )
+                                    })}
                                 </tbody>
                             </table>
                         </div>
                     </div>
 
-                    <div className="pt-8 text-center">
+                    <div className="pt-8 text-center space-y-4">
+                        <PixelButton onClick={() => {
+                            if(confirm("Reset today's progress?")) {
+                                const resetLog = { ...INITIAL_LOG, date: currentDate, bossTasks: log.bossTasks.map(t => ({...t, value: 0})) };
+                                setLog(resetLog);
+                                saveToLocal(resetLog);
+                            }
+                        }} variant="warning" className="w-full">
+                            Reset Today
+                        </PixelButton>
+
                         <PixelButton onClick={() => {
                             if(confirm("DELETE EVERYTHING?")) {
                                 localStorage.clear();
                                 window.location.reload();
                             }
-                        }} variant="danger">
-                            <Trash2 className="w-3 h-3 mr-2" /> ERASE DATA
+                        }} variant="danger" className="w-full">
+                            <Trash2 className="w-3 h-3 mr-2" /> ERASE ALL DATA
                         </PixelButton>
                     </div>
                 </div>
@@ -922,12 +1094,20 @@
                         <Settings className="w-6 h-6 text-rpg-yellow animate-spin-slow" />
                     </button>
 
+                    <button 
+                         onClick={() => setIsNotesOpen(true)}
+                         className="fixed right-0 top-36 bg-rpg-dark border-l-2 border-y-2 border-white p-2 z-40 rounded-l-lg hover:bg-gray-800 shadow-pixel"
+                         title="Open Notebook"
+                    >
+                        <Book className="w-6 h-6 text-white" />
+                    </button>
+
                     <div className="max-w-md mx-auto p-4">
                         <div className="mb-8 mt-4 text-center">
                             <h1 className="text-2xl font-pixel text-white text-shadow-pixel tracking-tighter leading-relaxed">
                                 <span className="text-rpg-red">DAILY</span> <span className="text-rpg-blue">QUESTS</span>
                             </h1>
-                            <div className="text-rpg-yellow font-pixel text-[10px]">FOR LEV [VER 5.7]</div>
+                            <div className="text-rpg-yellow font-pixel text-[10px]">FOR LEV [VER 6.0]</div>
                         </div>
 
                         <div className="flex justify-center gap-2 mb-8 bg-black p-2 border-4 border-white shadow-pixel">
@@ -935,7 +1115,7 @@
                                 <Sword className="w-5 h-5" />
                             </button>
                             <button onClick={() => setActiveTab('stats')} className={`p-2 border-2 ${activeTab === 'stats' ? 'bg-rpg-blue border-white text-white' : 'bg-gray-800 border-gray-600 text-gray-500'} hover:bg-rpg-blue hover:text-white transition-colors`}>
-                                <User className="w-5 h-5" />
+                                <Crown className="w-5 h-5" />
                             </button>
                             <button onClick={() => setActiveTab('data')} className={`p-2 border-2 ${activeTab === 'data' ? 'bg-rpg-green border-white text-white' : 'bg-gray-800 border-gray-600 text-gray-500'} hover:bg-rpg-green hover:text-white transition-colors`}>
                                 <Save className="w-5 h-5" />
@@ -943,8 +1123,14 @@
                         </div>
                         
                         {activeTab === 'quest' && renderQuestLog()}
-                        {activeTab === 'stats' && renderStats()}
+                        {activeTab === 'stats' && renderStreaks()}
                         {activeTab === 'data' && renderData()}
+
+                        <NotesPanel 
+                            isOpen={isNotesOpen} 
+                            onClose={() => setIsNotesOpen(false)} 
+                            currentDate={currentDate} 
+                        />
                     </div>
                 </div>
             );
